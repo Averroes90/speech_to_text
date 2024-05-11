@@ -1,0 +1,8 @@
+venv/
+__pycache__/
+.DS_Store
+*.pyc
+transcribe-translate-419922-f5ac2228562d.JSON
+.env
+testing_ipynb/
+main.pem

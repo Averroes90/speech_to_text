@@ -1,0 +1,124 @@
+from openai_adapters.openai_environment_loader import OpenaiEnvironmentHandler
+from protocols.protocols import TranscribeServiceHandler, EnvironmentHandler
+from openai import OpenAI
+import utils
+import re
+from audio_utils import batch_audio, load_audio_from_bytesio
+import io
+
+
+class WhisperServiceHandler(TranscribeServiceHandler):
+    def __init__(self, environment_handler: EnvironmentHandler = None):
+        if environment_handler is None:
+            self.environment_handler = OpenaiEnvironmentHandler()
+        else:
+            self.environment_handler = environment_handler
+        self.environment_handler.load_environment()
+        self.client = OpenAI()
+
+    def transcribe_audio(
+        self,
+        input_audio_data_io: io.BytesIO,
+        audio_path: str = None,
+        language: str = None,
+        **kwargs,
+    ) -> any:
+        if input_audio_data_io is None or language is None:
+            raise ValueError(
+                "Audio path, and language is required for Whisper transcription."
+            )
+        input_audio_data_io.seek(0)
+        # Assuming 'audio_data' is preprocessed and ready for API call
+        input_audio_data = load_audio_from_bytesio(input_audio_data_io)
+        audio_data, segment_times = batch_audio(input_audio_data, max_size_mb=24)
+        # print(f"len data {len(audio_data)}")
+        # return
+        transcription_response = []
+        for index, (audio_segment, segment_time) in enumerate(
+            zip(audio_data, segment_times)
+        ):
+            print(f"transcribing file {index+1} of {len(audio_data)}")
+            transcript = self.client.audio.transcriptions.create(
+                file=audio_segment,
+                language=language,
+                model="whisper-1",
+                response_format="srt",
+                # timestamp_granularities=["word", "segment"],
+            )
+            adjusted_transcript = adjust_srt_timestamps(transcript, segment_time[0])
+            transcription_response.append(adjusted_transcript)
+            srt_segments = [
+                s + "\n" if not s.endswith("\n\n") else s
+                for s in transcription_response
+            ]
+            complete_srt = "".join(srt_segments)
+        return complete_srt  # in srt format
+
+    def transcribe_translate(
+        self,
+        input_audio_data_io: io.BytesIO,
+        audio_path: str = None,
+        **kwargs,
+    ):
+        if input_audio_data_io is None:
+            raise ValueError(
+                "Audio path, and language is required for Whisper transcription."
+            )
+        input_audio_data_io.seek(0)
+        input_audio_data = load_audio_from_bytesio(input_audio_data_io)
+        # Assuming 'audio_data' is preprocessed and ready for API call
+        audio_data, segment_times = batch_audio(input_audio_data, max_size_mb=24)
+        # print(f"len data {len(audio_data)}")
+        # return
+        transcription_response = []
+        for index, (audio_segment, segment_time) in enumerate(
+            zip(audio_data, segment_times)
+        ):
+            print(f"transcribing file {index+1} of {len(audio_data)}")
+            transcript = self.client.audio.translations.create(
+                file=audio_segment,
+                model="whisper-1",
+                response_format="srt",
+                # timestamp_granularities=["word", "segment"],
+            )
+            # Adjust timestamps in transcript based on start_time
+            adjusted_transcript = adjust_srt_timestamps(transcript, segment_time[0])
+            transcription_response.append(adjusted_transcript)
+            srt_segments = [
+                s + "\n" if not s.endswith("\n\n") else s
+                for s in transcription_response
+            ]
+            complete_srt = "".join(srt_segments)
+
+        return complete_srt  # in srt format
+
+
+def adjust_srt_timestamps(srt_data, start_time):
+    # Helper function to convert SRT time format to milliseconds
+    def srt_time_to_ms(srt_time):
+        h, m, s, ms = map(int, re.split("[:,]", srt_time))
+        return (h * 3600 + m * 60 + s) * 1000 + ms
+
+    # Helper function to convert milliseconds to SRT time format
+    def ms_to_srt_time(ms):
+        hours, remainder = divmod(ms, 3600000)
+        minutes, remainder = divmod(remainder, 60000)
+        seconds, milliseconds = divmod(remainder, 1000)
+        return f"{hours:02}:{minutes:02}:{seconds:02},{milliseconds:03}"
+
+    adjusted_srt = []
+    entries = srt_data.strip().split("\n\n")
+    for entry in entries:
+        lines = entry.split("\n")
+        index, time_range, *text = lines
+        start, end = re.findall(r"(\d{2}:\d{2}:\d{2},\d{3})", time_range)
+        start_ms = srt_time_to_ms(start) + start_time
+        end_ms = srt_time_to_ms(end) + start_time
+        adjusted_start = ms_to_srt_time(start_ms)
+        adjusted_end = ms_to_srt_time(end_ms)
+        adjusted_entry = (
+            f"{index}\n{adjusted_start} --> {adjusted_end}\n{'\n'.join(text)}"
+        )
+        adjusted_srt.append(adjusted_entry)
+
+    return "\n\n".join(adjusted_srt)
