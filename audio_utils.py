@@ -1,13 +1,11 @@
 from pydub import AudioSegment
-from pydub.utils import make_chunks, get_array_type
-import numpy as np
 import webrtcvad
-from pydub.silence import detect_nonsilent
 import io
 import os
+from typing import Optional
 
 
-def load_audio(file_path):
+def load_audio(file_path: str) -> Optional[AudioSegment]:
     """
     Load an audio file from the specified path using pydub.
 
@@ -25,11 +23,13 @@ def load_audio(file_path):
         return None
 
 
-def detect_speech_segments(audio_data, frame_duration=30, aggressiveness=3):
+def detect_speech_segments(
+    audio_data: AudioSegment, frame_duration: int = 30, aggressiveness: int = 3
+) -> list[tuple[float, float]]:
     vad = webrtcvad.Vad(aggressiveness)
-    audio_data = audio_data.set_channels(audio_data.channels).set_sample_width(
-        audio_data.sample_width
-    )
+    audio_data = audio_data.set_channels(1).set_sample_width(
+        2
+    )  # Ensuring mono audio and 16-bit width
 
     if audio_data.frame_rate not in [8000, 16000, 32000, 48000]:
         raise ValueError(
@@ -40,36 +40,52 @@ def detect_speech_segments(audio_data, frame_duration=30, aggressiveness=3):
     is_speech = False
     start_time = None
 
-    for i in range(0, len(audio_data), frame_duration):
-        frame = audio_data[i : (i + frame_duration)]
+    try:
+        for i in range(0, len(audio_data), frame_duration):
+            frame = audio_data[i : i + frame_duration]
 
-        if len(frame) < frame_duration:
-            missing_duration = frame_duration - len(frame)
-            # Pad the frame with silence of the missing duration
-            frame += AudioSegment.silent(
-                duration=missing_duration, frame_rate=audio_data.frame_rate
-            )
+            if len(frame) < frame_duration:
+                missing_duration = frame_duration - len(frame)
+                frame += AudioSegment.silent(
+                    duration=missing_duration, frame_rate=audio_data.frame_rate
+                )
 
-        frame_raw_data = frame.raw_data
-        # Process frame_raw_data with VAD
-        is_speech_frame = vad.is_speech(frame_raw_data, audio_data.frame_rate)
-        current_time = i
+            frame_raw_data = frame.raw_data
+            is_speech_frame = vad.is_speech(
+                frame_raw_data, audio_data.frame_rate
+            )  # Process frame_raw_data with VAD
 
-        if not is_speech and is_speech_frame:
-            start_time = current_time
-            is_speech = True
-        elif is_speech and not is_speech_frame:
-            end_time = current_time
-            speech_segments.append((start_time, end_time))
-            is_speech = False
+            current_time = i
 
-    if is_speech:
-        speech_segments.append((start_time, len(audio_data)))
+            if not is_speech and is_speech_frame:
+                start_time = current_time
+                is_speech = True
+            elif is_speech and not is_speech_frame:
+                end_time = current_time
+                speech_segments.append((start_time, end_time))
+                is_speech = False
+
+        if is_speech:
+            speech_segments.append((start_time, len(audio_data)))
+
+    except Exception as e:
+        print(f"Error processing VAD: {e}")
+        # If an error occurs, return fixed-length segments
+        segment_length = int(
+            len(audio_data) / 5
+        )  # Example fixed length in milliseconds
+        return [
+            (j, j + segment_length) for j in range(0, len(audio_data), segment_length)
+        ]
 
     return speech_segments
 
 
-def combine_speech_segments(speech_segments, audio_data, max_size_mb):
+def combine_speech_segments(
+    speech_segments: list[tuple[float, float]],
+    audio_data: AudioSegment,
+    max_size_mb: int,
+) -> list[tuple[float, float]]:
     """
     Combine speech segments into larger chunks without exceeding the file size limit.
 
@@ -116,7 +132,7 @@ def combine_speech_segments(speech_segments, audio_data, max_size_mb):
     return combined_segments
 
 
-def calculate_segment_duration(segment):
+def calculate_segment_duration(segment: tuple[float, float]) -> int:
     """
     Calculate the duration of a specified segment of audio data.
 
@@ -131,7 +147,9 @@ def calculate_segment_duration(segment):
     return segment_duration
 
 
-def segment_audio(audio_data, segments):
+def segment_audio(
+    audio_data: AudioSegment, segments: list[tuple[float, float]]
+) -> list[io.BytesIO]:
     chunks = []
     for start, end in segments:
         chunks.append(audio_data[start:end])
@@ -147,7 +165,9 @@ def segment_audio(audio_data, segments):
     return in_memory_files
 
 
-def batch_audio(audio_data, max_size_mb):
+def batch_audio(
+    audio_data: AudioSegment, max_size_mb: int
+) -> tuple[list[io.BytesIO], list[tuple[float, float]]]:
     # audio_data = load_audio(audio_path)
     speach_segments = detect_speech_segments(audio_data)
     combined_segments = combine_speech_segments(
@@ -162,7 +182,7 @@ def extract_audio(
     input_filename: str,
     input_extension: str,
     output_extension: str = ".wav",
-) -> tuple[bool, str, io.BytesIO]:
+) -> tuple[bool, str, Optional[io.BytesIO]]:
     try:
         video_file = f"{input_path}{input_filename}{input_extension}"
         # Load the video file
@@ -187,15 +207,15 @@ def extract_audio(
         return False, str(e), None
 
 
-def load_audio_from_bytesio(bytes_io):
+def load_audio_from_bytesio(bytes_io: io.BytesIO) -> Optional[AudioSegment]:
     """
-    Load an audio file from a BytesIO object using pydub and extract the file extension.
+    Load an audio file from a BytesIO object using pydub.
 
     Args:
         bytes_io (io.BytesIO): A BytesIO object containing the audio data, with a 'name' attribute.
 
     Returns:
-        tuple: A tuple containing the AudioSegment object and the file extension, or (None, None) if loading fails.
+        AudioSegment: The audio data object if the file was successfully loaded, or None if an error occurs.
     """
     try:
         bytes_io.seek(0)  # Ensure we're at the start of the BytesIO stream

@@ -9,7 +9,7 @@ from protocols.protocols import TranscribeServiceHandler, EnvironmentHandler
 from google_adapters.google_environment_loader import GoogleEnvironmentHandler
 from nlp_utils2 import process_chirp_responses
 from google_adapters.GCP_adapter import GoogleCloudHandler
-from audio_utils import load_audio_from_bytesio
+import concurrent.futures
 
 
 class GoogleTranscribeModelHandler(TranscribeServiceHandler):
@@ -17,10 +17,12 @@ class GoogleTranscribeModelHandler(TranscribeServiceHandler):
         self,
         server_region: str = "us-central1",
         environment_handler: EnvironmentHandler = None,
+        env_loaded: bool = False,
     ):
-        if environment_handler is None:
-            environment_handler = GoogleEnvironmentHandler()
-        environment_handler.load_environment()
+        if not env_loaded:
+            if environment_handler is None:
+                environment_handler = GoogleEnvironmentHandler()
+            environment_handler.load_environment()
         load_dotenv()
         project_env = "PROJECT_ID"
         project_id = os.getenv(project_env)
@@ -53,10 +55,11 @@ class GoogleTranscribeModelHandler(TranscribeServiceHandler):
         #         "Storage URI and output file path are required for Google transcription."
         #     )
         # Get the current working directory
+        input_audio_data_io.seek(0)
         current_working_directory = os.getcwd()
 
         # Print the current working directory
-        print("Current Working Directory:", current_working_directory)
+        # print("Current Working Directory:", current_working_directory)
         language_code = self.config.get(language)
         self.cloud_handler.upload_audio_file(
             input_audio_data_io,
@@ -101,9 +104,14 @@ class GoogleTranscribeModelHandler(TranscribeServiceHandler):
         # Transcribes the audio into text
         operation = self.speech_client.batch_recognize(request=request)
 
-        print("Waiting for operation to complete...")
+        print(f"Waiting for operation to complete...model={model}")
         transcription_response = operation.result(timeout=900)
         # self.cloud_handler.delete_audio_file(file_name=file_name)
+        print(f"transcription complete!...model={model}")
+        utils.save_object_to_pickle(
+            transcription_response,
+            file_path=f"/Users/ramiibrahimi/Documents/test/pkl/{file_name}_{model}.pkl",
+        )
 
         return transcription_response
 
@@ -115,19 +123,41 @@ class GoogleTranscribeModelHandler(TranscribeServiceHandler):
         model: str = None,
         srt: bool = False,
         **kwargs,
-    ):
-        transcription_response1 = self.transcribe_audio(
-            input_audio_data_io=input_audio_data_io,
-            model="chirp",
-            language_code=source_language,
-            srt=srt,
-        )
-        transcription_response2 = self.transcribe_audio(
-            input_audio_data_io=input_audio_data_io,
-            model="chirp_2",
-            language_code=source_language,
-            srt=srt,
-        )
+    ) -> any:
+
+        # transcription_response1 = self.transcribe_audio(
+        #     input_audio_data_io=input_audio_data_io,
+        #     model="chirp",
+        #     language_code=source_language,
+        #     srt=srt,
+        # )
+        # transcription_response2 = self.transcribe_audio(
+        #     input_audio_data_io=input_audio_data_io,
+        #     model="chirp_2",
+        #     language_code=source_language,
+        #     srt=srt,
+        # )
+        # Use ThreadPoolExecutor to manage threads
+        # Use ThreadPoolExecutor to manage threads
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            future1 = executor.submit(
+                self.transcribe_audio,
+                input_audio_data_io=input_audio_data_io,
+                model="chirp",
+                language_code=source_language,
+                srt=srt,
+            )
+            future2 = executor.submit(
+                self.transcribe_audio,
+                input_audio_data_io=input_audio_data_io,
+                model="chirp_2",
+                language_code=source_language,
+                srt=srt,
+            )
+            # executor.submit()
+            transcription_response1 = future1.result()
+            transcription_response2 = future2.result()
+
         srt_1, srt_2 = process_chirp_responses(
             chirp_response=transcription_response1,
             chirp_2_response=transcription_response2,
@@ -147,7 +177,7 @@ class GoogleTranscribeModelHandler(TranscribeServiceHandler):
         return srt_chirp2__en
 
 
-def print_goog_transcription_details(transcription_response):
+def print_goog_transcription_details(transcription_response: any) -> None:
     """
     Print detailed information about the transcription response including
     transcripts, confidence levels, and timing information.

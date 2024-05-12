@@ -121,7 +121,7 @@ def translate_srt(
     return translated_srt_content
 
 
-def seconds_to_srt_time(sec):
+def seconds_to_srt_time(sec: float) -> str:
     """Convert seconds to SRT time format."""
     ms = int((sec - int(sec)) * 1000)
     return str(datetime.timedelta(seconds=int(sec))) + "," + f"{ms:03d}"
@@ -187,24 +187,25 @@ def select_files():
 
 
 def replace_extension(
-    file_path: str, end_modifiers: str = "", new_extension: str = ".srt"
+    file_path: str, new_extension: str = ".srt", end_modifiers: str = ""
 ) -> str:
     """
-    Replaces the current file extension with the new extension.
+    Replaces the current file extension with the new extension and optionally modifies the base filename.
 
     Parameters:
         file_path (str): The original file path.
-        new_extension (str): The new file extension to apply.
+        new_extension (str): The new file extension to apply, must start with a dot.
+        end_modifiers (str): String to append to the filename before the extension.
 
     Returns:
-        str: The modified file path with the new extension.
+        str: The modified file path with the new extension and any filename modifications.
     """
-    # Split the filepath into the root and the extension
+    # Split the filepath into the root and the existing extension
     root, _ = os.path.splitext(file_path)
 
     # Ensure the new extension starts with a dot
     if not new_extension.startswith("."):
-        new_extension = end_modifiers + "." + new_extension
+        new_extension = "." + new_extension
 
-    # Return the new file path
-    return root + new_extension
+    # Return the new file path with modifiers and new extension
+    return root + end_modifiers + new_extension

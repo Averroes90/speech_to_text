@@ -47,11 +47,13 @@ def get_translation_service_handler(service: str) -> TranslationServiceHandler:
         raise ValueError(f"Unsupported service: {service}")
 
 
-def get_environmet_handler(service: str) -> EnvironmentHandler:
+def get_environmet_handler(
+    service: str, env_loaded: bool = False
+) -> EnvironmentHandler:
     if service == "google":
-        return GoogleEnvironmentHandler()
+        return GoogleEnvironmentHandler(env_loaded=env_loaded)
     if service == "openai":
-        return OpenaiEnvironmentHandler()
+        return OpenaiEnvironmentHandler(env_loaded=env_loaded)
     else:
         # Add other conditions for different handlers
         raise ValueError(f"Unsupported service: {service}")

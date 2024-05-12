@@ -9,7 +9,6 @@ from google_adapters.google_environment_loader import (
     EnvironmentHandler,
     GoogleEnvironmentHandler,
 )
-from audio_utils import load_audio_from_bytesio
 
 
 class GoogleCloudHandler(CloudServiceHandler):

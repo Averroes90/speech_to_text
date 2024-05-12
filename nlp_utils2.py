@@ -1,15 +1,33 @@
+from typing import Optional
 import spacy
+from spacy.language import Language
 import re
 import utils
 
 
-def load_nlp_model(language_code: str = "it") -> any:
-    if language_code == "it":
-        model_name = "it_core_news_sm"
-    elif language_code == "de":
-        model_name = "de_core_news_sm"
-    elif language_code == "ru":
-        model_name = "ru_core_news_sm"
+def load_nlp_model(language_code: str = "it") -> Language:
+    """
+    Loads a spaCy NLP model based on the specified language code.
+
+    Args:
+        language_code (str): A two-letter language code (e.g., 'it' for Italian, 'de' for German).
+
+    Returns:
+        Language: A spaCy Language object representing the loaded model.
+
+    Raises:
+        ValueError: If the specified language is unsupported.
+    """
+    model_names = {
+        "it": "it_core_news_md",
+        "de": "de_core_news_md",
+        "ru": "ru_core_news_md",
+        "fr": "fr_core_news_sm",
+        "es": "es_core_news_sm",
+    }
+
+    if language_code in model_names:
+        model_name = model_names[language_code]
     else:
         raise ValueError("Unsupported language")
 
@@ -17,7 +35,7 @@ def load_nlp_model(language_code: str = "it") -> any:
     return nlp
 
 
-def segment_text(text, nlp):
+def segment_text(text: str, nlp: Language) -> list[str]:
     text = text.strip()
     doc = nlp(text)
     segments = [
@@ -26,7 +44,7 @@ def segment_text(text, nlp):
     return segments
 
 
-def combine_short_sentences(sentences: list, min_length=40) -> list:
+def combine_short_sentences(sentences: list[str], min_length: int = 40) -> list[str]:
     combined_sentences = []
     temp_sentence = ""
 
@@ -46,13 +64,13 @@ def combine_short_sentences(sentences: list, min_length=40) -> list:
     return combined_sentences
 
 
-def segment_transcript(text, nlp):
+def segment_transcript(text: str, nlp: Language) -> list[str]:
     segments = segment_text(text, nlp)
     combined_segments = combine_short_sentences(segments)
     return combined_segments
 
 
-def preprocess_and_tokenize(transcript):
+def preprocess_and_tokenize(transcript: str) -> list[str]:
     """
     Preprocesses the transcript by converting to lowercase and removing punctuation, then tokenizes it.
 
@@ -69,7 +87,7 @@ def preprocess_and_tokenize(transcript):
     return words
 
 
-def find_last_index(lst, value, start, end):
+def find_last_index(lst: list[any], value: any, start: int, end: int) -> int:
     """
     Finds the last index of 'value' in 'lst' between 'start' and 'end'.
 
@@ -88,7 +106,9 @@ def find_last_index(lst, value, start, end):
     return -1
 
 
-def fill_missing_pairs(input_dict, len_words1, len_words2):
+def fill_missing_pairs(
+    input_dict: dict[int, int], len_words1: int, len_words2: int
+) -> dict[int, int]:
     result_dict = {}
     prev_key, prev_value = -1, -1
 
@@ -115,7 +135,7 @@ def fill_missing_pairs(input_dict, len_words1, len_words2):
     return result_dict
 
 
-def match_transcripts(words1, words2):
+def match_transcripts(words1: list[str], words2: list[str]) -> dict[int, int]:
     # words1 = preprocess_and_tokenize(words1)
     # words2 = preprocess_and_tokenize(words2)
     # print(words1)
@@ -149,7 +169,9 @@ def match_transcripts(words1, words2):
     return enhanced_index_mapping
 
 
-def clone_timestamps(transcript1, transcript2, timestamp_mapping):
+def clone_timestamps(
+    transcript1: str, transcript2: str, timestamp_mapping: dict[str, float, float]
+) -> dict[str, Optional[str], Optional[float], Optional[float]]:
     words1 = preprocess_and_tokenize(transcript1)
     words2 = preprocess_and_tokenize(transcript2)
     # print(f"words1: {words1}")
@@ -208,12 +230,14 @@ def clone_timestamps(transcript1, transcript2, timestamp_mapping):
                 "end_time": timestamp_mapping[last_index1]["end_time"],
             }
         )
-        print(words2_w_timestamps)
+        # print(words2_w_timestamps)
 
     return words2_w_timestamps
 
 
-def find_segment_starting_ending_times(segments, stamped_transcript):
+def find_segment_starting_ending_times(
+    segments: list[str], stamped_transcript: dict[str, str, float, float]
+) -> list[dict[str, float, str, float]]:
     segment_times = []
     current_word_index = 0
 
@@ -245,8 +269,10 @@ def find_segment_starting_ending_times(segments, stamped_transcript):
 
 
 def combine_short_segments(
-    segments: list, segment_times: list, min_length: int = 10
-) -> list:
+    segments: list[str],
+    segment_times: list[dict[str, float, str, float]],
+    min_length: int = 10,
+) -> list[str, float, float]:
     combined_segments = []
     current_combination = ""
     current_combination_start_time = None
@@ -285,7 +311,7 @@ def combine_short_segments(
                 )
             )
     # Handle remaining segments if segments are longer than times
-    if i < len(segments) - 1:  # more segments than segment times
+    if segments and segment_times and len(segments) > len(segment_times):
         if combined_segments and current_combination:
             # Combine remaining segments into the last entry
             remaining_segments = " ".join(segments[len(segment_times) :])
@@ -305,7 +331,9 @@ def combine_short_segments(
     return combined_segments
 
 
-def process_chirp_responses(chirp_response, chirp_2_response, source_language="it"):
+def process_chirp_responses(
+    chirp_response: any, chirp_2_response: any, source_language: str
+) -> tuple[str, str]:
 
     nlp = load_nlp_model(source_language)
     chirp_2_key = next(iter(chirp_2_response.results))
@@ -349,8 +377,10 @@ def process_chirp_responses(chirp_response, chirp_2_response, source_language="i
 
 
 def segment_chirp_1_transcript(
-    chirp_2_segments, chirp_1_transcript, chirp_2_transcript
-):
+    chirp_2_segments: list[str, float, float],
+    chirp_1_transcript: str,
+    chirp_2_transcript: str,
+) -> list[str, float, float]:
     words1 = preprocess_and_tokenize(chirp_1_transcript)
     words2 = preprocess_and_tokenize(chirp_2_transcript)
     index_mapping = match_transcripts(words1, words2)
@@ -380,7 +410,7 @@ def segment_chirp_1_transcript(
     return chirp_1_segments
 
 
-def extract_words_timings(result):
+def extract_words_timings(result: any) -> dict[str, float, float]:
 
     alternative = result.alternatives[0]
     words = alternative.words

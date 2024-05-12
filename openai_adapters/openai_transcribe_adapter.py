@@ -1,29 +1,32 @@
 from openai_adapters.openai_environment_loader import OpenaiEnvironmentHandler
 from protocols.protocols import TranscribeServiceHandler, EnvironmentHandler
 from openai import OpenAI
-import utils
 import re
 from audio_utils import batch_audio, load_audio_from_bytesio
 import io
+import utils
 
 
 class WhisperServiceHandler(TranscribeServiceHandler):
-    def __init__(self, environment_handler: EnvironmentHandler = None):
-        if environment_handler is None:
-            self.environment_handler = OpenaiEnvironmentHandler()
-        else:
-            self.environment_handler = environment_handler
-        self.environment_handler.load_environment()
+    def __init__(
+        self, environment_handler: EnvironmentHandler = None, env_loaded: bool = False
+    ):
+        if not env_loaded:
+            if environment_handler is None:
+                self.environment_handler = OpenaiEnvironmentHandler()
+            else:
+                self.environment_handler = environment_handler
+            self.environment_handler.load_environment()
         self.client = OpenAI()
 
     def transcribe_audio(
         self,
         input_audio_data_io: io.BytesIO,
         audio_path: str = None,
-        language: str = None,
+        source_language: str = None,
         **kwargs,
     ) -> any:
-        if input_audio_data_io is None or language is None:
+        if input_audio_data_io is None or source_language is None:
             raise ValueError(
                 "Audio path, and language is required for Whisper transcription."
             )
@@ -33,14 +36,15 @@ class WhisperServiceHandler(TranscribeServiceHandler):
         audio_data, segment_times = batch_audio(input_audio_data, max_size_mb=24)
         # print(f"len data {len(audio_data)}")
         # return
+        file_name = input_audio_data_io.name
         transcription_response = []
         for index, (audio_segment, segment_time) in enumerate(
             zip(audio_data, segment_times)
         ):
-            print(f"transcribing file {index+1} of {len(audio_data)}")
+            print(f"openai transcribing batch {index+1} of {len(audio_data)}")
             transcript = self.client.audio.transcriptions.create(
                 file=audio_segment,
-                language=language,
+                language=source_language,
                 model="whisper-1",
                 response_format="srt",
                 # timestamp_granularities=["word", "segment"],
@@ -51,7 +55,12 @@ class WhisperServiceHandler(TranscribeServiceHandler):
                 s + "\n" if not s.endswith("\n\n") else s
                 for s in transcription_response
             ]
-            complete_srt = "".join(srt_segments)
+        complete_srt = "".join(srt_segments)
+        print("openai transcription complete!")
+        utils.save_object_to_pickle(
+            complete_srt,
+            file_path=f"/Users/ramiibrahimi/Documents/test/pkl/{file_name}_whisper.pkl",
+        )
         return complete_srt  # in srt format
 
     def transcribe_translate(
@@ -59,7 +68,7 @@ class WhisperServiceHandler(TranscribeServiceHandler):
         input_audio_data_io: io.BytesIO,
         audio_path: str = None,
         **kwargs,
-    ):
+    ) -> any:
         if input_audio_data_io is None:
             raise ValueError(
                 "Audio path, and language is required for Whisper transcription."
@@ -70,6 +79,7 @@ class WhisperServiceHandler(TranscribeServiceHandler):
         audio_data, segment_times = batch_audio(input_audio_data, max_size_mb=24)
         # print(f"len data {len(audio_data)}")
         # return
+        file_name = input_audio_data_io.name
         transcription_response = []
         for index, (audio_segment, segment_time) in enumerate(
             zip(audio_data, segment_times)
@@ -88,14 +98,18 @@ class WhisperServiceHandler(TranscribeServiceHandler):
                 s + "\n" if not s.endswith("\n\n") else s
                 for s in transcription_response
             ]
-            complete_srt = "".join(srt_segments)
+        complete_srt = "".join(srt_segments)
+        utils.save_object_to_pickle(
+            complete_srt,
+            file_path=f"/Users/ramiibrahimi/Documents/test/pkl/{file_name}_whisper.pkl",
+        )
 
         return complete_srt  # in srt format
 
 
-def adjust_srt_timestamps(srt_data, start_time):
+def adjust_srt_timestamps(srt_data: str, start_time: int) -> str:
     # Helper function to convert SRT time format to milliseconds
-    def srt_time_to_ms(srt_time):
+    def srt_time_to_ms(srt_time: int) -> int:
         h, m, s, ms = map(int, re.split("[:,]", srt_time))
         return (h * 3600 + m * 60 + s) * 1000 + ms
 

@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 class GoogleEnvironmentHandler(EnvironmentHandler):
     def load_environment(
         self, credentials_env_var: str = "GOOGLE_APPLICATION_CREDENTIALS"
-    ):
+    ) -> None:
         load_dotenv()
         cred_file_name = os.getenv(credentials_env_var)
         if cred_file_name is None:
