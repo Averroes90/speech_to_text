@@ -84,7 +84,9 @@ class WhisperServiceHandler(TranscribeServiceHandler):
         for index, (audio_segment, segment_time) in enumerate(
             zip(audio_data, segment_times)
         ):
-            print(f"transcribing file {index+1} of {len(audio_data)}")
+            print(
+                f"openai transcribing and translating batch {index+1} of {len(audio_data)}"
+            )
             transcript = self.client.audio.translations.create(
                 file=audio_segment,
                 model="whisper-1",
@@ -99,12 +101,14 @@ class WhisperServiceHandler(TranscribeServiceHandler):
                 for s in transcription_response
             ]
         complete_srt = "".join(srt_segments)
+        complete_srt_reindex = renumber_srt_indices(complete_srt)
+        print("openai transcription complete!")
         utils.save_object_to_pickle(
-            complete_srt,
+            complete_srt_reindex,
             file_path=f"/Users/ramiibrahimi/Documents/test/pkl/{file_name}_whisper.pkl",
         )
 
-        return complete_srt  # in srt format
+        return complete_srt_reindex  # in srt format
 
 
 def adjust_srt_timestamps(srt_data: str, start_time: int) -> str:
@@ -134,5 +138,25 @@ def adjust_srt_timestamps(srt_data: str, start_time: int) -> str:
             f"{index}\n{adjusted_start} --> {adjusted_end}\n{'\n'.join(text)}"
         )
         adjusted_srt.append(adjusted_entry)
+
+    return "\n\n".join(adjusted_srt)
+
+
+def renumber_srt_indices(srt_data: str) -> str:
+    """
+    Adjusts the indices of SRT subtitle entries so they are sequential from 1 onwards.
+
+    :param srt_data: The SRT data as a string, where indices may be out of order.
+    :return: A string of the SRT data with corrected indices.
+    """
+    adjusted_srt = []
+    entries = srt_data.strip().split("\n\n")
+    new_index = 1
+    for entry in entries:
+        lines = entry.split("\n")
+        time_range, *text = lines[1:]  # Skip the original index
+        adjusted_entry = f"{new_index}\n{time_range}\n{'\n'.join(text)}"
+        adjusted_srt.append(adjusted_entry)
+        new_index += 1  # Increment the index for each subtitle
 
     return "\n\n".join(adjusted_srt)

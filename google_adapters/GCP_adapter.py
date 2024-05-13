@@ -13,12 +13,12 @@ from google_adapters.google_environment_loader import (
 
 class GoogleCloudHandler(CloudServiceHandler):
     def __init__(
-        self,
-        environment_handler: EnvironmentHandler = None,
+        self, environment_handler: EnvironmentHandler = None, env_loaded: bool = False
     ):
-        if environment_handler is None:
-            environment_handler = GoogleEnvironmentHandler()
-        environment_handler.load_environment()
+        if not env_loaded:
+            if environment_handler is None:
+                environment_handler = GoogleEnvironmentHandler()
+            environment_handler.load_environment()
         load_dotenv()
         bucket_env = "BUCKET_NAME"
         bucket_name = os.getenv(bucket_env)
@@ -31,6 +31,7 @@ class GoogleCloudHandler(CloudServiceHandler):
         # file_name = os.path.basename(file_path)
         input_audio_data_io.seek(0)
         file_name = input_audio_data_io.name
+        print(f"cloud filename {file_name}")
         blob = self.bucket.blob(file_name)
 
         # Check if the file is already in the bucket
@@ -42,7 +43,8 @@ class GoogleCloudHandler(CloudServiceHandler):
         print(f"uploading file {file_name}")
 
         # Get the sample rate from the local file
-        sample_rate = utils.get_sample_rate_bytesio(input_audio_data_io)
+        sample_rate = input_audio_data_io.sample_rate
+        # sample_rate = utils.get_sample_rate_bytesio(input_audio_data_io)
 
         # Upload the file and set metadata
         blob.metadata = {"sample_rate": str(sample_rate)}

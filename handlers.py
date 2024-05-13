@@ -17,12 +17,12 @@ from protocols.protocols import (
 
 
 def get_transcribe_service_handler(
-    service: str,
+    service: str, env_loaded: bool = False
 ) -> TranscribeServiceHandler:
     if service == "google":
-        return GoogleTranscribeModelHandler()
+        return GoogleTranscribeModelHandler(env_loaded=env_loaded)
     if service == "openai":
-        return WhisperServiceHandler()
+        return WhisperServiceHandler(env_loaded=env_loaded)
 
     else:
         # Add other conditions for different handlers
@@ -30,30 +30,30 @@ def get_transcribe_service_handler(
 
 
 def get_cloud_service_handler(
-    service: str,
+    service: str, env_loaded: bool = False
 ) -> CloudServiceHandler:
     if service == "google":
-        return GoogleCloudHandler()
+        return GoogleCloudHandler(env_loaded=env_loaded)
     else:
         # Add other conditions for different handlers
         raise ValueError(f"Unsupported service: {service}")
 
 
-def get_translation_service_handler(service: str) -> TranslationServiceHandler:
-    if service == "google":
-        return GoogleTranslateServiceHandler()
-    else:
-        # Add other conditions for different handlers
-        raise ValueError(f"Unsupported service: {service}")
-
-
-def get_environmet_handler(
+def get_translation_service_handler(
     service: str, env_loaded: bool = False
-) -> EnvironmentHandler:
+) -> TranslationServiceHandler:
     if service == "google":
-        return GoogleEnvironmentHandler(env_loaded=env_loaded)
+        return GoogleTranslateServiceHandler(env_loaded=env_loaded)
+    else:
+        # Add other conditions for different handlers
+        raise ValueError(f"Unsupported service: {service}")
+
+
+def get_environmet_handler(service: str) -> EnvironmentHandler:
+    if service == "google":
+        return GoogleEnvironmentHandler()
     if service == "openai":
-        return OpenaiEnvironmentHandler(env_loaded=env_loaded)
+        return OpenaiEnvironmentHandler()
     else:
         # Add other conditions for different handlers
         raise ValueError(f"Unsupported service: {service}")

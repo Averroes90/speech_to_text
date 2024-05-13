@@ -195,6 +195,7 @@ def extract_audio(
         # Create a BytesIO object to hold the audio data
         audio_buffer = io.BytesIO()
         audio_buffer.name = f"{input_filename}{output_extension}"
+        audio_buffer.sample_rate = video.frame_rate
 
         # Export the audio in mono format
         video.export(audio_buffer, format=output_extension.lstrip("."))
@@ -228,7 +229,7 @@ def load_audio_from_bytesio(bytes_io: io.BytesIO) -> Optional[AudioSegment]:
             raise AttributeError(
                 "BytesIO object does not have a 'name' attribute with a filename."
             )
-        print(f"file extension {file_extension}")
+        # print(f"file extension {file_extension}")
         audio_data = AudioSegment.from_file(bytes_io, format=file_extension)
         return audio_data
     except Exception as e:

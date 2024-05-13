@@ -1,5 +1,4 @@
 from google.cloud import translate_v2 as translate
-import os
 from protocols.protocols import TranslationServiceHandler
 from google_adapters.google_environment_loader import (
     EnvironmentHandler,
@@ -9,12 +8,12 @@ from google_adapters.google_environment_loader import (
 
 class GoogleTranslateServiceHandler(TranslationServiceHandler):
     def __init__(
-        self,
-        environment_handler: EnvironmentHandler = None,
+        self, environment_handler: EnvironmentHandler = None, env_loaded: bool = False
     ):
-        if environment_handler is None:
-            environment_handler = GoogleEnvironmentHandler()
-        environment_handler.load_environment()
+        if not env_loaded:
+            if environment_handler is None:
+                environment_handler = GoogleEnvironmentHandler()
+            environment_handler.load_environment()
 
         self.translate_client = translate.Client()
 

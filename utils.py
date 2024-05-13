@@ -85,9 +85,10 @@ def translate_srt(
     service: str = "google",
     source_language: str = "it",
     target_language: str = "en",
+    env_loaded: bool = False,
 ) -> str:
     # Get the translation service handler
-    processor = get_translation_service_handler(service=service)
+    processor = get_translation_service_handler(service=service, env_loaded=env_loaded)
 
     # Split the content into blocks
     blocks = srt_content.strip().split("\n\n")
@@ -158,15 +159,16 @@ def extract_path_details(full_path: str) -> tuple[str, str, str]:
 def get_sample_rate_bytesio(audio_data: io.BytesIO) -> int:
     """
     Get the sample rate of the given audio data.
-    audio_data should be a BytesIO object containing audio data.
+    audio_data should be a BytesIO object containing audio data of any format supported by ffmpeg.
     """
-    # Ensure the pointer is at the start of the BytesIO object
+    # Reset the pointer to the start of the BytesIO object
     audio_data.seek(0)
 
-    with wave.open(audio_data, "rb") as wave_file:
-        sample_rate = wave_file.getframerate()
+    # Load the audio file from BytesIO
+    audio_segment = AudioSegment.from_file(audio_data)
 
-    return sample_rate
+    # Return the frame rate
+    return audio_segment.frame_rate
 
 
 def load_config(file_path):

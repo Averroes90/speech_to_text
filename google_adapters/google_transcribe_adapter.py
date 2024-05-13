@@ -23,6 +23,7 @@ class GoogleTranscribeModelHandler(TranscribeServiceHandler):
             if environment_handler is None:
                 environment_handler = GoogleEnvironmentHandler()
             environment_handler.load_environment()
+            env_loaded = True
         load_dotenv()
         project_env = "PROJECT_ID"
         project_id = os.getenv(project_env)
@@ -30,7 +31,7 @@ class GoogleTranscribeModelHandler(TranscribeServiceHandler):
         self.server_region = server_region
         config_path = "resources/language_map.json"
         self.config = utils.load_config(config_path)
-        self.cloud_handler = GoogleCloudHandler()
+        self.cloud_handler = GoogleCloudHandler(env_loaded=env_loaded)
         if self.server_region != "global":
             self.speech_client = SpeechClient(
                 client_options=ClientOptions(
@@ -42,8 +43,8 @@ class GoogleTranscribeModelHandler(TranscribeServiceHandler):
 
     def transcribe_audio(
         self,
-        input_audio_data_io: io.BytesIO,
-        model: str,
+        input_audio_data_io: io.BytesIO = None,
+        model: str = None,
         srt: bool = False,
         language: str = "it",
         **kwargs,
@@ -55,17 +56,19 @@ class GoogleTranscribeModelHandler(TranscribeServiceHandler):
         #         "Storage URI and output file path are required for Google transcription."
         #     )
         # Get the current working directory
-        input_audio_data_io.seek(0)
-        current_working_directory = os.getcwd()
 
-        # Print the current working directory
-        # print("Current Working Directory:", current_working_directory)
+        if not input_audio_data_io:  # for debugging
+            file_name = kwargs.get("file_name", "default_value")
+        else:
+            input_audio_data_io.seek(0)
+            file_name = input_audio_data_io.name
+
         language_code = self.config.get(language)
-        self.cloud_handler.upload_audio_file(
-            input_audio_data_io,
-        )
+        # self.cloud_handler.upload_audio_file(
+        #     input_audio_data_io,
+        # )
         bucket_name = self.cloud_handler.bucket_name
-        file_name = input_audio_data_io.name
+
         storage_uri = f"gs://{bucket_name}/{file_name}"
         # Configuring recognition features and settings
         feature_config = {
@@ -125,20 +128,9 @@ class GoogleTranscribeModelHandler(TranscribeServiceHandler):
         **kwargs,
     ) -> any:
 
-        # transcription_response1 = self.transcribe_audio(
-        #     input_audio_data_io=input_audio_data_io,
-        #     model="chirp",
-        #     language_code=source_language,
-        #     srt=srt,
-        # )
-        # transcription_response2 = self.transcribe_audio(
-        #     input_audio_data_io=input_audio_data_io,
-        #     model="chirp_2",
-        #     language_code=source_language,
-        #     srt=srt,
-        # )
-        # Use ThreadPoolExecutor to manage threads
-        # Use ThreadPoolExecutor to manage threads
+        self.cloud_handler.upload_audio_file(
+            input_audio_data_io,
+        )
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             future1 = executor.submit(
                 self.transcribe_audio,
@@ -173,6 +165,7 @@ class GoogleTranscribeModelHandler(TranscribeServiceHandler):
             service="google",
             source_language=source_language,
             target_language=target_language,
+            env_loaded=True,
         )
         return srt_chirp2__en
 

@@ -2,6 +2,7 @@ from typing import Optional
 import spacy
 from spacy.language import Language
 import re
+from process_transcription import adjust_timestamps
 import utils
 
 
@@ -19,9 +20,9 @@ def load_nlp_model(language_code: str = "it") -> Language:
         ValueError: If the specified language is unsupported.
     """
     model_names = {
-        "it": "it_core_news_md",
-        "de": "de_core_news_md",
-        "ru": "ru_core_news_md",
+        "it": "it_core_news_lg",
+        "de": "de_core_news_lg",
+        "ru": "ru_core_news_lg",
         "fr": "fr_core_news_sm",
         "es": "es_core_news_sm",
     }
@@ -44,30 +45,30 @@ def segment_text(text: str, nlp: Language) -> list[str]:
     return segments
 
 
-def combine_short_sentences(sentences: list[str], min_length: int = 40) -> list[str]:
-    combined_sentences = []
-    temp_sentence = ""
+# def combine_short_sentences(sentences: list[str], min_length: int = 40) -> list[str]:
+#     combined_sentences = []
+#     temp_sentence = ""
 
-    for sentence in sentences:
-        if len(sentence) + len(temp_sentence) < min_length:
-            temp_sentence += " " + sentence
-        else:
-            if temp_sentence:
-                combined_sentences.append(temp_sentence.strip())
-                temp_sentence = sentence
-            else:
-                temp_sentence = sentence
+#     for sentence in sentences:
+#         if len(sentence) + len(temp_sentence) < min_length:
+#             temp_sentence += " " + sentence
+#         else:
+#             if temp_sentence:
+#                 combined_sentences.append(temp_sentence.strip())
+#                 temp_sentence = sentence
+#             else:
+#                 temp_sentence = sentence
 
-    if temp_sentence:  # Add the last sentence if it's left out
-        combined_sentences.append(temp_sentence.strip())
+#     if temp_sentence:  # Add the last sentence if it's left out
+#         combined_sentences.append(temp_sentence.strip())
 
-    return combined_sentences
+#     return combined_sentences
 
 
-def segment_transcript(text: str, nlp: Language) -> list[str]:
-    segments = segment_text(text, nlp)
-    combined_segments = combine_short_sentences(segments)
-    return combined_segments
+# def segment_transcript(text: str, nlp: Language) -> list[str]:
+#     segments = segment_text(text, nlp)
+#     combined_segments = combine_short_sentences(segments)
+#     return combined_segments
 
 
 def preprocess_and_tokenize(transcript: str) -> list[str]:
@@ -170,7 +171,9 @@ def match_transcripts(words1: list[str], words2: list[str]) -> dict[int, int]:
 
 
 def clone_timestamps(
-    transcript1: str, transcript2: str, timestamp_mapping: dict[str, float, float]
+    transcript1: str,
+    transcript2: str,
+    timestamp_mapping: dict[int, dict[str, Optional[float]]],
 ) -> dict[str, Optional[str], Optional[float], Optional[float]]:
     words1 = preprocess_and_tokenize(transcript1)
     words2 = preprocess_and_tokenize(transcript2)
@@ -178,6 +181,9 @@ def clone_timestamps(
     # print(f"words2: {words2}")
     # print(f"len w1: {len(words1)}")
     # print(f"len w2: {len(words2)}")
+    adjusted_timestamp_mapping = fill_missing_wordss(
+        words=words1, timestamps=timestamp_mapping
+    )
     index_mapping = match_transcripts(words1, words2)
     # print(f"index_mapping: {index_mapping}")
     # Initialize the timestamp list for words2 with default values
@@ -189,8 +195,8 @@ def clone_timestamps(
         words2_w_timestamps.append(
             {
                 "word": words2[0],
-                "start_time": timestamp_mapping[0]["start_time"],
-                "end_time": timestamp_mapping[0]["end_time"],
+                "start_time": adjusted_timestamp_mapping[0]["start_time"],
+                "end_time": adjusted_timestamp_mapping[0]["end_time"],
             }
         )
 
@@ -205,8 +211,10 @@ def clone_timestamps(
                     {
                         "word2": word,
                         "word1": words1[word1_index],
-                        "start_time": timestamp_mapping[word1_index]["start_time"],
-                        "end_time": timestamp_mapping[word1_index]["end_time"],
+                        "start_time": adjusted_timestamp_mapping[word1_index][
+                            "start_time"
+                        ],
+                        "end_time": adjusted_timestamp_mapping[word1_index]["end_time"],
                     }
                 )
             else:
@@ -216,10 +224,10 @@ def clone_timestamps(
                 )
 
         # Assign timestamps to the last word in words2 from the last word in words1
-        last_index1 = len(timestamp_mapping) - 1
+        last_index1 = len(adjusted_timestamp_mapping) - 1
         last_index2 = len(words2) - 1
         if last_index2 in index_mapping:
-            start_time = timestamp_mapping[last_index1]["start_time"]
+            start_time = adjusted_timestamp_mapping[last_index1]["start_time"]
         else:
             start_time = None
         words2_w_timestamps.append(
@@ -227,7 +235,7 @@ def clone_timestamps(
                 "word2": words2[last_index2],
                 "word1": words1[last_index1],
                 "start_time": start_time,
-                "end_time": timestamp_mapping[last_index1]["end_time"],
+                "end_time": adjusted_timestamp_mapping[last_index1]["end_time"],
             }
         )
         # print(words2_w_timestamps)
@@ -331,6 +339,32 @@ def combine_short_segments(
     return combined_segments
 
 
+def combine_on_none(segments, segment_times):
+    combined_segments = []
+    current_combination = ""
+    for i, segment, segment_time in enumerate(zip(segments, segment_times)):
+
+        if segment_time["end_time"] != None:
+            combined_segments.append(segment)
+            current_combination = ""
+            continue
+
+        if i < min(len(segments), len(segment_times)):
+            current_combination += segments[i + 1]
+            if segment_times[i + 1]["end_time"] != None:
+                combined_segments.append(current_combination)
+                current_combination = ""
+                continue
+
+    # Handle remaining segments if segments are longer than times
+    if segments and segment_times and len(segments) > len(segment_times):
+        combined_segments.append(
+            current_combination + " " + " ".join(segments[len(segments) :])
+        )
+
+    return combined_segments
+
+
 def process_chirp_responses(
     chirp_response: any, chirp_2_response: any, source_language: str
 ) -> tuple[str, str]:
@@ -371,6 +405,8 @@ def process_chirp_responses(
         )
         segments_w_stamps2.extend(combined_segments2)
         segments_w_stamps1.extend(combined_segments1)
+    # print(segments_w_stamps1)
+    # print(segments_w_stamps2)
     srt_subtitles1 = utils.create_srt(segments_w_stamps1)
     srt_subtitles2 = utils.create_srt(segments_w_stamps2)
     return srt_subtitles1, srt_subtitles2
@@ -410,7 +446,7 @@ def segment_chirp_1_transcript(
     return chirp_1_segments
 
 
-def extract_words_timings(result: any) -> dict[str, float, float]:
+def extract_words_timings(result: any) -> dict[int, dict[str, Optional[float]]]:
 
     alternative = result.alternatives[0]
     words = alternative.words
@@ -433,3 +469,67 @@ def extract_words_timings(result: any) -> dict[str, float, float]:
             "end_time"
         ] = result.result_end_offset.total_seconds()
     return word_info
+
+
+# def fill_missing_wordss(
+#     words: list[str], timestamps: dict[int, dict[str, Optional[float]]]
+# ) -> dict[int, dict[str, Optional[float]]]:
+#     """
+#     Align timestamps with a list of words. If a word does not have a timestamp, it will be assigned None for start and end times.
+
+#     Args:
+#     - words (List[str]): List of words.
+#     - timestamps (Dict[int, Dict[str, Optional[float]]]): Dictionary of timestamps indexed by integer with word, start_time, and end_time.
+
+#     Returns:
+#     - Dict[int, Dict[str, Optional[float]]]: Dictionary where each integer index corresponds to a dictionary containing the word, start time, and end time.
+#     """
+#     aligned_timestamps = {}
+#     adjusted_index = 0
+
+#     for index, word in enumerate(words):
+#         word3 = preprocess_and_tokenize(timestamps[index - adjusted_index]["word"])
+#         if word3[0] == word:
+#             aligned_timestamps[index] = {
+#                 "word": word,
+#                 "start_time": timestamps[index - adjusted_index]["start_time"],
+#                 "end_time": timestamps[index - adjusted_index]["end_time"],
+#             }
+#         else:
+#             adjusted_index += 1
+#             aligned_timestamps[index] = {
+#                 "word": word,
+#                 "start_time": None,
+#                 "end_time": None,
+#             }
+
+#     return aligned_timestamps
+
+
+def fill_missing_wordss(
+    words: list[str], timestamps: dict[int, dict[str, Optional[float]]]
+) -> dict[int, dict[str, Optional[float]]]:
+    """
+    Align timestamps with a list of words. If a word does not have a timestamp, it will be assigned None for start and end times.
+
+    Args:
+    - words (List[str]): List of words.
+    - timestamps (Dict[int, Dict[str, Optional[float]]]): Dictionary of timestamps indexed by integer with word, start_time, and end_time.
+
+    Returns:
+    - Dict[int, Dict[str, Optional[float]]]: Dictionary where each integer index corresponds to a dictionary containing the word, start time, and end time.
+    """
+    aligned_timestamps = {}
+
+    for index, word in enumerate(words):
+        word2 = preprocess_and_tokenize(timestamps[index]["word"])
+        if index in timestamps and word2 == word:
+            aligned_timestamps[index] = timestamps[index]
+        else:
+            aligned_timestamps[index] = {
+                "word": word,
+                "start_time": None,
+                "end_time": None,
+            }
+
+    return aligned_timestamps

@@ -11,12 +11,21 @@ def main():
 
 
 def transcribe_translate(
-    file_path: str, service_name: str, source_language: str, target_language: str
+    file_path: str,
+    service_name: str,
+    source_language: str,
+    target_language: str,
+    audio_output_extension: str = ".wav",
 ) -> str:
+    env_handler = handlers.get_environmet_handler(service=service_name)
+    env_handler.load_environment()
     path, filename, extension = utils.extract_path_details(full_path=file_path)
     print("extracting audio from video file")
     success, message, audio_data = audio_utils.extract_audio(
-        input_path=path, input_filename=filename, input_extension=extension
+        input_path=path,
+        input_filename=filename,
+        input_extension=extension,
+        output_extension=audio_output_extension,
     )
     audio_data.seek(0)
     srt_response = transcribe_and_translate(
@@ -24,6 +33,7 @@ def transcribe_translate(
         service_name=service_name,
         source_language=source_language,
         target_language=target_language,
+        env_loaded=True,
     )
     return srt_response
 
@@ -57,15 +67,13 @@ def transcribe_and_translate(
     service_name: str,
     source_language: str,
     target_language: str,
+    env_loaded: bool = False,
 ):
 
-    env_handler = handlers.get_environmet_handler(service=service_name)
-    env_handler.load_environment()
     audio_data.seek(0)
     tc_tr_handler = handlers.get_transcribe_service_handler(
-        service=service_name, env_loaded=True
+        service=service_name, env_loaded=env_loaded
     )
-    print("starting automatic transcription")
     srt_response = tc_tr_handler.transcribe_translate(
         input_audio_data_io=audio_data,
         source_language=source_language,
@@ -75,13 +83,23 @@ def transcribe_and_translate(
 
 
 def multi_transcribe(
-    file_path: str, service_names: list[str], source_language: str, target_language: str
+    file_path: str,
+    service_names: list[str],
+    source_language: str,
+    target_language: str,
+    audio_output_extension: str = ".wav",
 ) -> str:
     srt_responses = {}
+    for service_name in service_names:
+        env_handler = handlers.get_environmet_handler(service=service_name)
+        env_handler.load_environment()
     path, filename, extension = utils.extract_path_details(full_path=file_path)
     print("extracting audio from video file")
     success, message, audio_data = audio_utils.extract_audio(
-        input_path=path, input_filename=filename, input_extension=extension
+        input_path=path,
+        input_filename=filename,
+        input_extension=extension,
+        output_extension=audio_output_extension,
     )
     audio_data.seek(0)
     print("starting automatic transcriptions")
@@ -93,6 +111,7 @@ def multi_transcribe(
                 audio_data=audio_data,
                 source_language=source_language,
                 target_language=target_language,
+                env_loaded=True,
             ): service
             for service in service_names
         }
