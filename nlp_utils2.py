@@ -2,7 +2,7 @@ from typing import Optional
 import spacy
 from spacy.language import Language
 import re
-from process_transcription import adjust_timestamps
+from itertools import zip_longest
 import utils
 
 
@@ -45,32 +45,6 @@ def segment_text(text: str, nlp: Language) -> list[str]:
     return segments
 
 
-# def combine_short_sentences(sentences: list[str], min_length: int = 40) -> list[str]:
-#     combined_sentences = []
-#     temp_sentence = ""
-
-#     for sentence in sentences:
-#         if len(sentence) + len(temp_sentence) < min_length:
-#             temp_sentence += " " + sentence
-#         else:
-#             if temp_sentence:
-#                 combined_sentences.append(temp_sentence.strip())
-#                 temp_sentence = sentence
-#             else:
-#                 temp_sentence = sentence
-
-#     if temp_sentence:  # Add the last sentence if it's left out
-#         combined_sentences.append(temp_sentence.strip())
-
-#     return combined_sentences
-
-
-# def segment_transcript(text: str, nlp: Language) -> list[str]:
-#     segments = segment_text(text, nlp)
-#     combined_segments = combine_short_sentences(segments)
-#     return combined_segments
-
-
 def preprocess_and_tokenize(transcript: str) -> list[str]:
     """
     Preprocesses the transcript by converting to lowercase and removing punctuation, then tokenizes it.
@@ -101,6 +75,9 @@ def find_last_index(lst: list[any], value: any, start: int, end: int) -> int:
     Returns:
     int: The last index of the found value, or -1 if not found.
     """
+    # print(lst)
+    # print(end)
+    # print(start)
     for i in range(end, start - 1, -1):  # Search from end to start
         if lst[i] == value:
             return i
@@ -137,36 +114,51 @@ def fill_missing_pairs(
 
 
 def match_transcripts(words1: list[str], words2: list[str]) -> dict[int, int]:
-    # words1 = preprocess_and_tokenize(words1)
-    # words2 = preprocess_and_tokenize(words2)
-    # print(words1)
-    # print(words2)
-    # print(len(words1))
-    # print(len(words2))
     index_mapping = {}
-    start_index = 0
-    end_index = len(words2) - 1
-
-    for i in range(min(len(words1), len(words2)) // 2):
+    margin = 5  # Margin for approximate matching position
+    # print(f"words1 {words1}")
+    # print(f"words2 {words2}")
+    # Forward matching: from the start to the middle of words1
+    for i in range(len(words1)):
         word_first = words1[i]
         word_last = words1[-(i + 1)]
 
-        if word_first in words2[start_index : end_index + 1]:
-            first_match_index = words2.index(word_first, start_index, end_index + 1)
-            index_mapping[first_match_index] = i
-            start_index = first_match_index + 1
+        # Search range for the first word
+        start_range = max(i - margin, 0)
+        end_range = min(
+            i + margin + 1, len(words2)
+        )  # end range should be inclusive, hence +1
 
-        if word_last in words2[start_index : end_index + 1]:
+        # Matching the first word in the approx range in words2
+        if word_first in words2[start_range:end_range]:
+            first_match_index = words2.index(word_first, start_range, end_range)
+            index_mapping[first_match_index] = i
+
+        # Reverse matching: from the end towards the middle of words1
+        # Calculate reverse index for words2 that mirrors the position in words1
+        reverse_index = len(words1) - 1 - i
+        start_range_last = max(reverse_index - margin, 0)
+        end_range_last = min(
+            reverse_index + margin + 1, len(words2)
+        )  # end range should be inclusive, hence +1
+
+        if word_last in words2[start_range_last:end_range_last]:
+            # print(start_range_last)
+            # print(end_range_last)
             last_match_index = find_last_index(
-                words2, word_last, start_index, end_index
+                words2, word_last, end_range_last, start_range_last
             )
             if last_match_index != -1:
-                index_mapping[last_match_index] = len(words1) - 1 - i
-                end_index = last_match_index - 1
+                index_mapping[last_match_index] = reverse_index
+
+    # Sorting index_mapping by the keys (indices from words2)
     sorted_index_mapping = dict(sorted(index_mapping.items()))
+
+    # Assuming fill_missing_pairs is a function you've defined elsewhere to fill gaps
     enhanced_index_mapping = fill_missing_pairs(
         sorted_index_mapping, len(words1), len(words2)
     )
+
     return enhanced_index_mapping
 
 
@@ -177,14 +169,28 @@ def clone_timestamps(
 ) -> dict[str, Optional[str], Optional[float], Optional[float]]:
     words1 = preprocess_and_tokenize(transcript1)
     words2 = preprocess_and_tokenize(transcript2)
-    # print(f"words1: {words1}")
-    # print(f"words2: {words2}")
-    # print(f"len w1: {len(words1)}")
-    # print(f"len w2: {len(words2)}")
-    adjusted_timestamp_mapping = fill_missing_wordss(
+    # #############
+    # if words1[0] == "bedank":
+    #     print(f"words1: {words1}")
+    #     print(f"words2: {words2}")
+    #     print(f"len w1: {len(words1)}")
+    #     print(f"len w2: {len(words2)}")
+    #     print(f"ts map: {timestamp_mapping}")
+    # #######################
+    adjusted_timestamp_mapping = fill_missing_words(
         words=words1, timestamps=timestamp_mapping
     )
+    # #############
+    # if words1[0] == "bedank":
+    #     print(f"adj ts map: {adjusted_timestamp_mapping}")
+
+    # #######################
     index_mapping = match_transcripts(words1, words2)
+    # #############
+    # if words1[0] == "bedank":
+    #     print(f"index map: {index_mapping}")
+
+    # #######################
     # print(f"index_mapping: {index_mapping}")
     # Initialize the timestamp list for words2 with default values
     words2_w_timestamps = []
@@ -278,9 +284,9 @@ def find_segment_starting_ending_times(
 
 def combine_short_segments(
     segments: list[str],
-    segment_times: list[dict[str, float, str, float]],
+    segment_times: list[dict[str, float]],
     min_length: int = 10,
-) -> list[str, float, float]:
+) -> list[tuple[str, float, float]]:
     combined_segments = []
     current_combination = ""
     current_combination_start_time = None
@@ -339,29 +345,49 @@ def combine_short_segments(
     return combined_segments
 
 
-def combine_on_none(segments, segment_times):
+def combine_on_none(
+    segments: list[str], segment_times: list[dict[str, float]]
+) -> list[tuple[str, float, float]]:
     combined_segments = []
     current_combination = ""
-    for i, segment, segment_time in enumerate(zip(segments, segment_times)):
+    combined_seg_start_time = None
+    next_segment_start_time = None
+    # print(f"inside combine on none pre segments {segments}")
+    # print(f"inside combine on none pre segment times {segment_times}")
+    for index, (segment, segment_time) in enumerate(
+        zip_longest(segments, segment_times, fillvalue=None)
+    ):
+        if not current_combination:  # new combo
+            combined_seg_start_time = segment_time["start_time"]
+            current_combination = segment
+        else:
+            current_combination += " " + segment
 
-        if segment_time["end_time"] != None:
-            combined_segments.append(segment)
+        if index < len(segment_times) - 1:
+            next_segment_start_time = segment_times[index + 1]["start_time"]
+
+        if (
+            segment_time is not None
+            and segment_time["end_time"] != None
+            and current_combination
+            and next_segment_start_time != None
+        ):
+            combined_segments.append(
+                (current_combination, combined_seg_start_time, segment_time["end_time"])
+            )
             current_combination = ""
             continue
 
-        if i < min(len(segments), len(segment_times)):
-            current_combination += segments[i + 1]
-            if segment_times[i + 1]["end_time"] != None:
-                combined_segments.append(current_combination)
-                current_combination = ""
-                continue
-
     # Handle remaining segments if segments are longer than times
-    if segments and segment_times and len(segments) > len(segment_times):
+    if current_combination:
         combined_segments.append(
-            current_combination + " " + " ".join(segments[len(segments) :])
+            (
+                current_combination,
+                combined_seg_start_time,
+                segment_times[-1]["end_time"],
+            )
         )
-
+    # print(f"inside combine on none combined segments {combined_segments}")
     return combined_segments
 
 
@@ -387,17 +413,42 @@ def process_chirp_responses(
         # print(f"transcript 1 loop 1 {transcript1}")
         transcript2 = result2.alternatives[0].transcript
         # print(f"transcript 2 loop 1 {transcript2}")
+        transcript2 = pick_better_transcript(
+            transcript1=transcript1, transcript2=transcript2
+        )
         word_timestamp_mapping = extract_words_timings(result1)
+        # ################
+        # # for debugging
+        # if i == 14:
+        #     print(f"result {i} word time stamp map pre clone {word_timestamp_mapping}")
+        #     print(f"result {i} trans1 pre clone {transcript1}")
+        #     print(f"result {i} trans2 pre clone {transcript2}")
+        # ################
         stamped_transcript2 = clone_timestamps(
             transcript1, transcript2, word_timestamp_mapping
         )
+        # # for debugging
+        # ###############
+        # if i == 14:
+        #     print(
+        #         f"result {i} stamped transcript pre segmentation {stamped_transcript2}"
+        #     )
+        #     print(f"result {i} transcript2 pre segmentation {transcript2}")
+
+        # ################
         segments2 = segment_text(transcript2, nlp)
+        # for debugging
+        # ###################
+        # if i == 14:
+        #     print(f"result {i} segments2 post segmentation {segments2}")
+
+        # ################
 
         segment_stamps2 = find_segment_starting_ending_times(
             segments2, stamped_transcript2
         )
         # print(f"loop1 segments2 {segments2} segment stamps 2 {segment_stamps2}")
-        combined_segments2 = combine_short_segments(
+        combined_segments2 = combine_on_none(
             segments=segments2, segment_times=segment_stamps2
         )
         combined_segments1 = segment_chirp_1_transcript(
@@ -471,7 +522,7 @@ def extract_words_timings(result: any) -> dict[int, dict[str, Optional[float]]]:
     return word_info
 
 
-# def fill_missing_wordss(
+# def fill_missing_words(
 #     words: list[str], timestamps: dict[int, dict[str, Optional[float]]]
 # ) -> dict[int, dict[str, Optional[float]]]:
 #     """
@@ -503,10 +554,11 @@ def extract_words_timings(result: any) -> dict[int, dict[str, Optional[float]]]:
 #                 "end_time": None,
 #             }
 
+
 #     return aligned_timestamps
 
 
-def fill_missing_wordss(
+def fill_missing_words(
     words: list[str], timestamps: dict[int, dict[str, Optional[float]]]
 ) -> dict[int, dict[str, Optional[float]]]:
     """
@@ -520,10 +572,16 @@ def fill_missing_wordss(
     - Dict[int, Dict[str, Optional[float]]]: Dictionary where each integer index corresponds to a dictionary containing the word, start time, and end time.
     """
     aligned_timestamps = {}
-
+    # print(f"inside fill missing word time stamps{timestamps}")
+    # print(f"inside fill missing words {words}")
     for index, word in enumerate(words):
         word2 = preprocess_and_tokenize(timestamps[index]["word"])
-        if index in timestamps and word2 == word:
+        # print(f"inside fill missing word2 {word2[0]} and word {word}")
+        # if index in timestamps:
+        #     # print(f"index {index} in timestamps")
+        # if word2 == word:
+        #     # print(f"word2 {word2[0]} equal to word {word}")
+        if index in timestamps and word2[0] == word:
             aligned_timestamps[index] = timestamps[index]
         else:
             aligned_timestamps[index] = {
@@ -531,5 +589,20 @@ def fill_missing_wordss(
                 "start_time": None,
                 "end_time": None,
             }
-
+    # print(f"inside fill missing alighned stamps {aligned_timestamps}")
     return aligned_timestamps
+
+
+# the logic here can be expanded in the future
+def pick_better_transcript(transcript1: str, transcript2: str) -> str:
+    better_transcript = ""
+    words1 = preprocess_and_tokenize(transcript1)
+    words2 = preprocess_and_tokenize(transcript2)
+
+    # if chirp has a transcript and chirp 2 doesnt, take chirp1
+    if words1 and not words2:
+        better_transcript = transcript1
+    else:
+        better_transcript = transcript2
+
+    return better_transcript
