@@ -2,7 +2,9 @@ from typing import Optional
 import spacy
 from spacy.language import Language
 import re
+import regex as re1
 from itertools import zip_longest
+from process_transcription import adjust_timestamps
 import utils
 
 
@@ -45,21 +47,32 @@ def segment_text(text: str, nlp: Language) -> list[str]:
     return segments
 
 
-def preprocess_and_tokenize(transcript: str) -> list[str]:
+def preprocess_and_tokenize(text: str) -> list[str]:
     """
-    Preprocesses the transcript by converting to lowercase and removing punctuation, then tokenizes it.
+    Remove all punctuation from the given text, convert to lowercase, and tokenize the text,
+    removing any kind of whitespace characters.
 
     Args:
-    transcript (str): The original transcript text.
+    - text (str): The text to process.
 
     Returns:
-    list: A list of cleaned, tokenized words from the transcript.
+    - list[str]: A list of tokens with all punctuation removed, converted to lowercase, and all whitespace removed.
     """
-    # Convert to lowercase and remove punctuation
-    cleaned_transcript = re.sub(r"[^\w\s]", "", transcript.lower())
-    # Tokenize the transcript
-    words = cleaned_transcript.split()
-    return words
+    # Convert text to lowercase for uniformity
+    text = text.lower()
+
+    # Define a comprehensive list of punctuation characters
+    punctuation = "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"
+
+    # Remove all punctuation
+    cleaned_text = "".join(char for char in text if char not in punctuation)
+
+    # Use regex to split on any whitespace and remove empty strings from the result
+    tokens = [
+        token.strip() for token in re.split(r"\s+", cleaned_text) if token.strip()
+    ]
+
+    return tokens
 
 
 def find_last_index(lst: list[any], value: any, start: int, end: int) -> int:
@@ -177,9 +190,11 @@ def clone_timestamps(
     #     print(f"len w2: {len(words2)}")
     #     print(f"ts map: {timestamp_mapping}")
     # #######################
+    # print(f"before kkkkkkkkkkkkkkkkkkkk{timestamp_mapping} fart")
     adjusted_timestamp_mapping = fill_missing_words(
         words=words1, timestamps=timestamp_mapping
     )
+    # print(f"after kkkkkkkkkkkkkkkkkkkk{adjusted_timestamp_mapping} fart")
     # #############
     # if words1[0] == "bedank":
     #     print(f"adj ts map: {adjusted_timestamp_mapping}")
@@ -232,6 +247,11 @@ def clone_timestamps(
         # Assign timestamps to the last word in words2 from the last word in words1
         last_index1 = len(adjusted_timestamp_mapping) - 1
         last_index2 = len(words2) - 1
+        # print(f"adjusted time stampping {adjusted_timestamp_mapping}")
+        # print(f"adjusted time stampping  last {adjusted_timestamp_mapping[last_index1]["end_time"]}")
+        # print(last_index1)
+        # print(f"words 2 in mapping {words2}")
+        # print(f"words 2 in mapping  indexed {words2[last_index2]}")
         if last_index2 in index_mapping:
             start_time = adjusted_timestamp_mapping[last_index1]["start_time"]
         else:
@@ -505,7 +525,7 @@ def extract_words_timings(result: any) -> dict[int, dict[str, Optional[float]]]:
     # print(f"alternative {alternative}")
     word_info = {
         i: {
-            "word": word.word,
+            "word": preprocess_and_tokenize(word.word)[0],
             "start_time": word.start_offset.total_seconds(),
             "end_time": word.end_offset.total_seconds(),
         }
@@ -574,22 +594,38 @@ def fill_missing_words(
     aligned_timestamps = {}
     # print(f"inside fill missing word time stamps{timestamps}")
     # print(f"inside fill missing words {words}")
+    # print(f"len timestamps {len(timestamps)}")
+    # print(f"len wordss {len(words)}")
+    n_missing = 0
+
     for index, word in enumerate(words):
-        word2 = preprocess_and_tokenize(timestamps[index]["word"])
-        # print(f"inside fill missing word2 {word2[0]} and word {word}")
-        # if index in timestamps:
-        #     # print(f"index {index} in timestamps")
-        # if word2 == word:
-        #     # print(f"word2 {word2[0]} equal to word {word}")
-        if index in timestamps and word2[0] == word:
-            aligned_timestamps[index] = timestamps[index]
+        if (index - n_missing) in timestamps:
+            word_from_timestamps = timestamps[index - n_missing]["word"]
+            word2 = preprocess_and_tokenize(word_from_timestamps)[0]
+            # print(
+            #     f"Index: {index} Word: {word} Processed TS Word: {word2} TS Word: {word_from_timestamps}"
+            # )
+
+            if word2 == word:
+                aligned_timestamps[index] = timestamps[index - n_missing]
+            else:
+                n_missing += 1
+                # print(
+                #     f"Missing word at index {index}: '{word}' (Processed TS Word: '{word2}')"
+                # )
+                aligned_timestamps[index] = {
+                    "word": word,
+                    "start_time": None,
+                    "end_time": None,
+                }
         else:
+            # print(f"No timestamp entry for index {index} word: {word}")
             aligned_timestamps[index] = {
                 "word": word,
                 "start_time": None,
                 "end_time": None,
             }
-    # print(f"inside fill missing alighned stamps {aligned_timestamps}")
+
     return aligned_timestamps
 
 
