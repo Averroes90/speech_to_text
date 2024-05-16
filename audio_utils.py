@@ -196,6 +196,7 @@ def extract_audio(
         audio_buffer = io.BytesIO()
         audio_buffer.name = f"{input_filename}{output_extension}"
         audio_buffer.sample_rate = video.frame_rate
+        audio_buffer.audio_duration = video.duration_seconds
 
         # Export the audio in mono format
         video.export(audio_buffer, format=output_extension.lstrip("."))

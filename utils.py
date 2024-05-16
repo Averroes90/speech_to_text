@@ -1,3 +1,4 @@
+from re import I
 from pydub import AudioSegment
 import os
 import wave
@@ -10,6 +11,7 @@ from handlers import get_translation_service_handler
 import io
 import tkinter as tk
 from tkinter import filedialog
+from nlp_utils2 import fix_none_stamps
 
 
 def extract_and_convert_audio(
@@ -128,12 +130,23 @@ def seconds_to_srt_time(sec: float) -> str:
     return str(datetime.timedelta(seconds=int(sec))) + "," + f"{ms:03d}"
 
 
-def create_srt(subtitles):
+def create_srt(
+    subtitles: list[tuple[str, float, float]], audio_duration: float = 10000
+) -> str:
     srt_content = ""
     # print(f"subtiteles: {subtitles}")
     for index, (text, start, end) in enumerate(subtitles, start=1):
         # print(f"srt text {text}")
+        # if start == None:
+        #     start = 373
+        # if end == None:
+        #     end = 680
+        if start == None or end == None:
+            text, start, end = fix_none_stamps(
+                max(index - 1, 0), subtitles, audio_duration
+            )
         start_time = seconds_to_srt_time(start)
+
         end_time = seconds_to_srt_time(end)
         srt_content += f"{index}\n{start_time} --> {end_time}\n{text}\n\n"
     return srt_content

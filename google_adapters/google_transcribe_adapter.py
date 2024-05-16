@@ -2,6 +2,8 @@ from google.cloud.speech_v2 import SpeechClient
 from google.cloud.speech_v2.types import cloud_speech
 import os
 import io
+
+from openai import audio
 import utils
 from dotenv import load_dotenv
 from google.api_core.client_options import ClientOptions
@@ -131,6 +133,7 @@ class GoogleTranscribeModelHandler(TranscribeServiceHandler):
         self.cloud_handler.upload_audio_file(
             input_audio_data_io,
         )
+        audio_duration = input_audio_data_io.audio_duration
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             future1 = executor.submit(
                 self.transcribe_audio,
@@ -154,6 +157,7 @@ class GoogleTranscribeModelHandler(TranscribeServiceHandler):
             chirp_response=transcription_response1,
             chirp_2_response=transcription_response2,
             source_language=source_language,
+            audio_duration=audio_duration,
         )
         # srt_chirp1__en = utils.translate_srt(srt_1,
         #     service="google",

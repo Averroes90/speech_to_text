@@ -62,7 +62,7 @@ def preprocess_and_tokenize(text: str) -> list[str]:
     text = text.lower()
 
     # Define a comprehensive list of punctuation characters
-    punctuation = "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"
+    punctuation = "!\"#$%&'()*+,./:;<=>?@[\\]`{|}~"
 
     # Remove all punctuation
     cleaned_text = "".join(char for char in text if char not in punctuation)
@@ -183,12 +183,14 @@ def clone_timestamps(
     words1 = preprocess_and_tokenize(transcript1)
     words2 = preprocess_and_tokenize(transcript2)
     # #############
-    # if words1[0] == "bedank":
+    # if words1[0] == "супер":
     #     print(f"words1: {words1}")
     #     print(f"words2: {words2}")
     #     print(f"len w1: {len(words1)}")
     #     print(f"len w2: {len(words2)}")
     #     print(f"ts map: {timestamp_mapping}")
+    #     print(f"last word words1 {words1[-1]}")
+    #     print(f"last word words2 {words2[-1]}")
     # #######################
     # print(f"before kkkkkkkkkkkkkkkkkkkk{timestamp_mapping} fart")
     adjusted_timestamp_mapping = fill_missing_words(
@@ -196,13 +198,13 @@ def clone_timestamps(
     )
     # print(f"after kkkkkkkkkkkkkkkkkkkk{adjusted_timestamp_mapping} fart")
     # #############
-    # if words1[0] == "bedank":
+    # if words1[0] == "супер":
     #     print(f"adj ts map: {adjusted_timestamp_mapping}")
 
     # #######################
     index_mapping = match_transcripts(words1, words2)
     # #############
-    # if words1[0] == "bedank":
+    # if words1[0] == "супер":
     #     print(f"index map: {index_mapping}")
 
     # #######################
@@ -247,11 +249,18 @@ def clone_timestamps(
         # Assign timestamps to the last word in words2 from the last word in words1
         last_index1 = len(adjusted_timestamp_mapping) - 1
         last_index2 = len(words2) - 1
-        # print(f"adjusted time stampping {adjusted_timestamp_mapping}")
-        # print(f"adjusted time stampping  last {adjusted_timestamp_mapping[last_index1]["end_time"]}")
-        # print(last_index1)
-        # print(f"words 2 in mapping {words2}")
-        # print(f"words 2 in mapping  indexed {words2[last_index2]}")
+        # ###################################################################
+        # if words1[0] == "супер":
+        #     last_index1
+        #     print(f"adjusted time stampping {adjusted_timestamp_mapping}")
+        #     print(f"adjusted time stampping  last {adjusted_timestamp_mapping[last_index1]["end_time"]}")
+        #     print(f"last index1 {last_index1}")
+        #     print(f"last index2 {last_index2}")
+        #     print(f"words 2 in mapping {words2}")
+        #     print(f"words 1 in mapping {words1}")
+        #     print(f"len of words 2 in mapping {len(words2)}")
+        #     print(f"len of adjusted mppong {len(adjusted_timestamp_mapping)}")
+        #  ###################################################################
         if last_index2 in index_mapping:
             start_time = adjusted_timestamp_mapping[last_index1]["start_time"]
         else:
@@ -285,7 +294,7 @@ def find_segment_starting_ending_times(
 
         end_word_index = current_word_index + len(words_in_segment) - 1
         if end_word_index >= len(stamped_transcript):
-            print(f"Missing timestamp data for segment: {segment}")
+            # print(f"Missing timestamp data for segment: {segment}")
             segment_end_time = stamped_transcript[len(stamped_transcript) - 1][
                 "end_time"
             ]  # Last known good timestamp
@@ -336,6 +345,7 @@ def combine_short_segments(
                     )
                 )
                 current_combination = ""
+                next_start_time = None
         else:  # final loop
             combined_segments.append(
                 (
@@ -372,11 +382,24 @@ def combine_on_none(
     current_combination = ""
     combined_seg_start_time = None
     next_segment_start_time = None
-    # print(f"inside combine on none pre segments {segments}")
-    # print(f"inside combine on none pre segment times {segment_times}")
+    if segments[0] == "Угу.":
+
+        print(f"inside combine on none pre segments {segments}")
+        print(f"inside combine on none pre segment times {segment_times}")
     for index, (segment, segment_time) in enumerate(
-        zip_longest(segments, segment_times, fillvalue=None)
+        zip_longest(
+            segments, segment_times, fillvalue={"start_time": None, "end_time": None}
+        )
     ):
+        # ##################################################################
+        # #for debugging
+        # if segments[0] == "Угу.":
+        #     print(f"index: {index}")
+        #     print(f'segments: {segments}')
+        #     print(f"segment_times {segment_times}")
+        #     print(f'sssssssegments: {segment}')
+        #     print(f"sssssssssegment_time {segment_time}")
+        # ###################################################################
         if not current_combination:  # new combo
             combined_seg_start_time = segment_time["start_time"]
             current_combination = segment
@@ -396,6 +419,7 @@ def combine_on_none(
                 (current_combination, combined_seg_start_time, segment_time["end_time"])
             )
             current_combination = ""
+            next_segment_start_time = None
             continue
 
     # Handle remaining segments if segments are longer than times
@@ -407,12 +431,16 @@ def combine_on_none(
                 segment_times[-1]["end_time"],
             )
         )
+    # if segments[0] == "Молодец.":
     # print(f"inside combine on none combined segments {combined_segments}")
     return combined_segments
 
 
 def process_chirp_responses(
-    chirp_response: any, chirp_2_response: any, source_language: str
+    chirp_response: any,
+    chirp_2_response: any,
+    source_language: str,
+    audio_duration: float = 10000,
 ) -> tuple[str, str]:
 
     nlp = load_nlp_model(source_language)
@@ -437,37 +465,47 @@ def process_chirp_responses(
             transcript1=transcript1, transcript2=transcript2
         )
         word_timestamp_mapping = extract_words_timings(result1)
-        # ################
-        # # for debugging
-        # if i == 14:
-        #     print(f"result {i} word time stamp map pre clone {word_timestamp_mapping}")
-        #     print(f"result {i} trans1 pre clone {transcript1}")
-        #     print(f"result {i} trans2 pre clone {transcript2}")
+        ################
+        # for debugging
+        if i == 36:
+            print(
+                f"result {i} word time stamp map pre clone len{len(word_timestamp_mapping)} word_timestamp_map {word_timestamp_mapping}"
+            )
+            print(f"result {i} trans1 pre clone {transcript1}")
+            print(f"result {i} trans2 pre clone {transcript2}")
         # ################
         stamped_transcript2 = clone_timestamps(
             transcript1, transcript2, word_timestamp_mapping
         )
-        # # for debugging
-        # ###############
-        # if i == 14:
-        #     print(
-        #         f"result {i} stamped transcript pre segmentation {stamped_transcript2}"
-        #     )
-        #     print(f"result {i} transcript2 pre segmentation {transcript2}")
+        # for debugging
+        ###############
+        if i == 36:
+            print(
+                f"result {i} stamped transcript pre segmentation post clone len{len(stamped_transcript2)} segment_transcript2 {stamped_transcript2}"
+            )
+            print(f"result {i} transcript2 pre segmentation post clone {transcript2}")
 
-        # ################
+        ################
         segments2 = segment_text(transcript2, nlp)
         # for debugging
-        # ###################
-        # if i == 14:
-        #     print(f"result {i} segments2 post segmentation {segments2}")
+        ###################
+        if i == 36:
+            print(f"result {i} segments2 post segmentation {segments2}")
 
-        # ################
+        ################
 
         segment_stamps2 = find_segment_starting_ending_times(
             segments2, stamped_transcript2
         )
-        # print(f"loop1 segments2 {segments2} segment stamps 2 {segment_stamps2}")
+        # ###########################
+        if i == 36:
+            print(
+                f"post find starting and ending times loop1 segments2 len{len(segments2)} segments2 {segments2}"
+            )
+            print(
+                f"post find starting and ending times loop1 segment stamps 2 len{len(segment_stamps2)} segment_stamps2 {segment_stamps2}"
+            )
+        #############################
         combined_segments2 = combine_on_none(
             segments=segments2, segment_times=segment_stamps2
         )
@@ -476,10 +514,10 @@ def process_chirp_responses(
         )
         segments_w_stamps2.extend(combined_segments2)
         segments_w_stamps1.extend(combined_segments1)
-    # print(segments_w_stamps1)
-    # print(segments_w_stamps2)
-    srt_subtitles1 = utils.create_srt(segments_w_stamps1)
-    srt_subtitles2 = utils.create_srt(segments_w_stamps2)
+    print(segments_w_stamps1)
+    print(segments_w_stamps2)
+    srt_subtitles1 = utils.create_srt(segments_w_stamps1, audio_duration)
+    srt_subtitles2 = utils.create_srt(segments_w_stamps2, audio_duration)
     return srt_subtitles1, srt_subtitles2
 
 
@@ -602,9 +640,14 @@ def fill_missing_words(
         if (index - n_missing) in timestamps:
             word_from_timestamps = timestamps[index - n_missing]["word"]
             word2 = preprocess_and_tokenize(word_from_timestamps)[0]
-            # print(
-            #     f"Index: {index} Word: {word} Processed TS Word: {word2} TS Word: {word_from_timestamps}"
-            # )
+            # #################################
+            # if timestamps[0]['word'] == "супер":
+            #     print(
+            #         f"Index: {index} Word: {word} Processed TS Word: {word2} TS Word: {word_from_timestamps}"
+            #     )
+            #     print(f"wwwwwwwooooorrrrrd {word}")
+            #     print(f"ts index minus n missing {timestamps[index - n_missing]["word"]}")
+            # ####################################
 
             if word2 == word:
                 aligned_timestamps[index] = timestamps[index - n_missing]
@@ -626,6 +669,10 @@ def fill_missing_words(
                 "end_time": None,
             }
 
+    # if timestamps[0]['word'] == "супер":
+    #     print(f"number of missing {n_missing}")
+    #     print(f"len timestamps {len(timestamps)}")
+    #     print(f"len adj timestamps {len(aligned_timestamps)}")
     return aligned_timestamps
 
 
@@ -642,3 +689,59 @@ def pick_better_transcript(transcript1: str, transcript2: str) -> str:
         better_transcript = transcript2
 
     return better_transcript
+
+
+# def fix_none_stamps(
+#     index: int, subtitles: list[tuple[str, float, float]]
+# ) -> tuple[str, float, float]:
+#     new_text, new_start, new_end = subtitles[index]
+#     text, start, end = subtitles[index]
+#     print(f"attempting to fix a none start or none end at index {index}")
+
+#     if index > 0:
+#         prior_text, prior_start, prior_end = subtitles[index - 1]
+#         if start is None:
+#             new_start = prior_end
+#     else:
+#         prior_text, prior_start, prior_end = None, None, None
+#         if start is None:
+#             new_start = max(end - 4, 0) if end is not None else 0
+#     if index < len(subtitles) - 1:
+#         next_text, next_start, next_end = subtitles[index + 1]
+#         if end is None:
+#             end = next_start
+#     else:
+#         next_text, next_start, next_end = None, None, None
+#         if end is None:
+#             new_end = start + 4
+#     return new_text, new_start, new_end
+
+
+def fix_none_stamps(
+    index: int, subtitles: list[tuple[str, float, float]], audio_duration: float = 10000
+) -> tuple[str, float, float]:
+    current_text, current_start, current_end = subtitles[index]
+    print(f"attempting to fix a none start or none end at index {index}")
+    # Attempt to fix a None start time
+    if current_start is None:
+        # Use the end time of the previous subtitle if possible
+        if index > 0:
+            _, _, prior_end = subtitles[index - 1]
+            current_start = prior_end
+        else:
+            # If it's the first subtitle and start is None, assume a start time of 0
+            current_start = max(current_end - 4, 0) if current_end is not None else 0
+
+    # Attempt to fix a None end time
+    if current_end is None:
+        # Use the start time of the next subtitle if possible
+        if index < len(subtitles) - 1:
+            _, next_start, _ = subtitles[index + 1]
+            current_end = next_start
+        else:
+            # If it's the last subtitle and end is None, add a default duration to start
+            current_end = min(
+                current_start + 4, audio_duration
+            )  # Assume a default duration of 4 seconds
+
+    return (current_text, current_start, current_end)
