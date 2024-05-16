@@ -8,7 +8,7 @@ from itertools import zip_longest
 from process_transcription import adjust_timestamps
 import utils
 
-debug_mode= True
+debug_mode_global= True
 
 def load_nlp_model(language_code: str = "it") -> Language:
     """
@@ -184,7 +184,7 @@ def clone_timestamps(
 ) -> dict[str, Optional[str], Optional[float], Optional[float]]:
     #######################
     ##for dubugging
-    debug_mode = debug_mode
+    debug_mode = debug_mode_global
     comp_word_1 = "m"
     comp_word_1_index = 0
     comp_word_2 = ""
@@ -475,7 +475,7 @@ def process_chirp_responses(
 ) -> tuple[str, str]:
     ################
     ##for debugging
-    debug_mode = debug_mode
+    debug_mode = debug_mode_global
     debug_index = 36
     #############################
     nlp = load_nlp_model(source_language)
@@ -704,7 +704,7 @@ def fill_missing_words(
                     aligned_timestamps[index] = {
                         "word": word,
                         "start_time": None,
-                        "end_time": timestamps[-1]['end_time'],
+                        "end_time": timestamps[len(timestamps)-1]['end_time'],
                     }
         else:
             # print(f"No timestamp entry for index {index} word: {word}")
@@ -724,7 +724,7 @@ def fill_missing_words(
                 aligned_timestamps[index] = {
                     "word": word,
                     "start_time": None,
-                    "end_time": timestamps[-1]['end_time'],
+                    "end_time": timestamps[len(timestamps)-1]['end_time'],
                 }
 
 
