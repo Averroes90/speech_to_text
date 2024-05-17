@@ -3,6 +3,7 @@ import handlers
 import audio_utils
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import io
+import gc
 
 
 # app.py
@@ -122,7 +123,8 @@ def multi_transcribe(
                 srt_responses[service] = srt_response
             except Exception as exc:
                 srt_responses[service] = f"{service} generated an exception: {exc}"
-
+    del audio_data
+    gc.collect()
     return srt_responses
 
 
