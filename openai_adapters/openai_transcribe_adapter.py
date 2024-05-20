@@ -9,7 +9,10 @@ import utils
 
 class WhisperServiceHandler(TranscribeServiceHandler):
     def __init__(
-        self, environment_handler: EnvironmentHandler = None, env_loaded: bool = False
+        self,
+        environment_handler: EnvironmentHandler = None,
+        env_loaded: bool = False,
+        server_region: str = None,
     ):
         if not env_loaded:
             if environment_handler is None:

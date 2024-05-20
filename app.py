@@ -17,6 +17,7 @@ def transcribe_translate(
     source_language: str,
     target_language: str,
     audio_output_extension: str = ".wav",
+    server_region: str = "us-central1",  # for google transcribe chirp
 ) -> str:
     env_handler = handlers.get_environmet_handler(service=service_name)
     env_handler.load_environment()
@@ -35,7 +36,10 @@ def transcribe_translate(
         source_language=source_language,
         target_language=target_language,
         env_loaded=True,
+        server_region=server_region,
     )
+    del audio_data
+    gc.collect()
     return srt_response
 
 
@@ -69,11 +73,12 @@ def transcribe_and_translate(
     source_language: str,
     target_language: str,
     env_loaded: bool = False,
+    server_region: str = "us-central1",  # for google transcribe chirp
 ):
 
     audio_data.seek(0)
     tc_tr_handler = handlers.get_transcribe_service_handler(
-        service=service_name, env_loaded=env_loaded
+        service=service_name, env_loaded=env_loaded, server_region=server_region
     )
     srt_response = tc_tr_handler.transcribe_translate(
         input_audio_data_io=audio_data,
@@ -89,6 +94,7 @@ def multi_transcribe(
     source_language: str,
     target_language: str,
     audio_output_extension: str = ".wav",
+    server_region: str = "us-central1",  # for google transcribe chirp
 ) -> str:
     srt_responses = {}
     for service_name in service_names:
@@ -113,6 +119,7 @@ def multi_transcribe(
                 source_language=source_language,
                 target_language=target_language,
                 env_loaded=True,
+                server_region=server_region,
             ): service
             for service in service_names
         }

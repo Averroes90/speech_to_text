@@ -26,7 +26,9 @@ class GoogleCloudHandler(CloudServiceHandler):
         self.storage_client = storage.Client()
         self.bucket = self.storage_client.bucket(self.bucket_name)
 
-    def upload_audio_file(self, input_audio_data_io: io.BytesIO) -> str:
+    def upload_audio_file(
+        self, input_audio_data_io: io.BytesIO, sample_rate: int = None
+    ) -> str:
         # for debugging
         # file_name = os.path.basename(file_path)
         input_audio_data_io.seek(0)

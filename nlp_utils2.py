@@ -8,7 +8,7 @@ from itertools import zip_longest
 from process_transcription import adjust_timestamps
 import utils
 
-debug_mode_global= False
+debug_mode_global= True
 
 def load_nlp_model(language_code: str = "it") -> Language:
     """

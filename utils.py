@@ -95,7 +95,7 @@ def translate_srt(
     # Split the content into blocks
     blocks = srt_content.strip().split("\n\n")
     translated_blocks = []
-
+    print("translating...")
     for block in blocks:
         # Split each block into its components (index, timecode, and text)
         lines = block.split("\n")

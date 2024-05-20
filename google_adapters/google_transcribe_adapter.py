@@ -79,7 +79,7 @@ class GoogleTranscribeModelHandler(TranscribeServiceHandler):
             # "max_alternatives": 2,
         }
         # Conditionally add "enable_word_time_offsets" if model is not "chirp_2"
-        if model != "chirp_2":
+        if model != "chirp_2" or srt is True:
             feature_config["enable_word_time_offsets"] = True
 
         config = cloud_speech.RecognitionConfig(
@@ -110,7 +110,7 @@ class GoogleTranscribeModelHandler(TranscribeServiceHandler):
         operation = self.speech_client.batch_recognize(request=request)
 
         print(f"Waiting for operation to complete...model={model}")
-        transcription_response = operation.result(timeout=900)
+        transcription_response = operation.result(timeout=4000)
         # self.cloud_handler.delete_audio_file(file_name=file_name)
         print(f"transcription complete!...model={model}")
         utils.save_object_to_pickle(
