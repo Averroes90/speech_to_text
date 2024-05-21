@@ -4,6 +4,9 @@ import audio_utils
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import io
 import gc
+from nlp_utils2 import process_chirp_responses
+from google_adapters.GCP_adapter import GoogleCloudHandler
+from google_adapters.google_transcribe_adapter import GoogleTranscribeModelHandler
 
 
 # app.py
@@ -75,16 +78,70 @@ def transcribe_and_translate(
     env_loaded: bool = False,
     server_region: str = "us-central1",  # for google transcribe chirp
 ):
-
     audio_data.seek(0)
-    tc_tr_handler = handlers.get_transcribe_service_handler(
-        service=service_name, env_loaded=env_loaded, server_region=server_region
-    )
-    srt_response = tc_tr_handler.transcribe_translate(
-        input_audio_data_io=audio_data,
-        source_language=source_language,
-        target_language=target_language,
-    )
+    if service_name == "google" and server_region:
+        chirp_handler = handlers.get_transcribe_service_handler(
+            service=service_name, env_loaded=env_loaded, server_region=server_region
+        )
+        chirp2_handler = handlers.get_transcribe_service_handler(
+            service=service_name, env_loaded=env_loaded, server_region="us-central1"
+        )
+
+        cloud_handler = GoogleCloudHandler(env_loaded=True)
+        cloud_handler.upload_audio_file(input_audio_data_io=audio_data)
+        audio_duration = audio_data.audio_duration
+
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            future1 = executor.submit(
+                chirp_handler.transcribe_audio,
+                input_audio_data_io=audio_data,
+                model="chirp",
+                language_code=source_language,
+                srt=False,
+                internal_call=True,
+            )
+            future2 = executor.submit(
+                chirp2_handler.transcribe_audio,
+                input_audio_data_io=audio_data,
+                model="chirp_2",
+                language_code=source_language,
+                srt=False,
+                internal_call=True,
+            )
+            # executor.submit()
+            transcription_response1 = future1.result()
+            transcription_response2 = future2.result()
+
+        srt_1, srt_2 = process_chirp_responses(
+            chirp_response=transcription_response1,
+            chirp_2_response=transcription_response2,
+            source_language=source_language,
+            audio_duration=audio_duration,
+        )
+        # srt_chirp1__en = utils.translate_srt(srt_1,
+        #     service="google",
+        #     source_language=source_language,
+        #     target_language=target_language,
+        # )
+        srt_response = utils.translate_srt(
+            srt_2,
+            service="google",
+            source_language=source_language,
+            target_language=target_language,
+            env_loaded=True,
+        )
+
+    else:
+
+        tc_tr_handler = handlers.get_transcribe_service_handler(
+            service=service_name, env_loaded=env_loaded, server_region=server_region
+        )
+        srt_response = tc_tr_handler.transcribe_translate(
+            input_audio_data_io=audio_data,
+            source_language=source_language,
+            target_language=target_language,
+        )
+
     return srt_response
 
 

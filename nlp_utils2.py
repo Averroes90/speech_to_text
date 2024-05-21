@@ -3,12 +3,11 @@ from typing import Optional
 import spacy
 from spacy.language import Language
 import re
-import regex as re1
 from itertools import zip_longest
-from process_transcription import adjust_timestamps
 import utils
+import stanza
 
-debug_mode_global= True
+debug_mode_global= False
 
 def load_nlp_model(language_code: str = "it") -> Language:
     """
@@ -594,11 +593,13 @@ def extract_words_timings(result: any) -> dict[int, dict[str, Optional[float]]]:
 
     alternative = result.alternatives[0]
     words = alternative.words
+    # print(f"result {result}")
     # print(f"words1 in extract {words}")
     # print(f"alternative {alternative}")
+
     word_info = {
         i: {
-            "word": preprocess_and_tokenize(word.word)[0],
+            "word": preprocess_and_tokenize(word.word)[0] if preprocess_and_tokenize(word.word) else word.word,
             "start_time": word.start_offset.total_seconds(),
             "end_time": word.end_offset.total_seconds(),
         }

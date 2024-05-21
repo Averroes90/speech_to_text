@@ -17,10 +17,12 @@ from protocols.protocols import (
 
 
 def get_transcribe_service_handler(
-    service: str, env_loaded: bool = False
+    service: str, env_loaded: bool = False, server_region: str = "us-central1"
 ) -> TranscribeServiceHandler:
     if service == "google":
-        return GoogleTranscribeModelHandler(env_loaded=env_loaded)
+        return GoogleTranscribeModelHandler(
+            env_loaded=env_loaded, server_region=server_region
+        )
     if service == "openai":
         return WhisperServiceHandler(env_loaded=env_loaded)
 

@@ -59,6 +59,11 @@ class GoogleTranscribeModelHandler(TranscribeServiceHandler):
         #     )
         # Get the current working directory
 
+        # if kwargs.get("internal_call", False) == False:
+        #     self.cloud_handler.upload_audio_file(
+        #         input_audio_data_io=input_audio_data_io,
+        #     )
+
         if not input_audio_data_io:  # for debugging
             file_name = kwargs.get("file_name", "default_value")
         else:
@@ -110,7 +115,7 @@ class GoogleTranscribeModelHandler(TranscribeServiceHandler):
         operation = self.speech_client.batch_recognize(request=request)
 
         print(f"Waiting for operation to complete...model={model}")
-        transcription_response = operation.result(timeout=4000)
+        transcription_response = operation.result(timeout=900)
         # self.cloud_handler.delete_audio_file(file_name=file_name)
         print(f"transcription complete!...model={model}")
         utils.save_object_to_pickle(
@@ -141,6 +146,7 @@ class GoogleTranscribeModelHandler(TranscribeServiceHandler):
                 model="chirp",
                 language_code=source_language,
                 srt=srt,
+                internal_call=True,
             )
             future2 = executor.submit(
                 self.transcribe_audio,
@@ -148,6 +154,7 @@ class GoogleTranscribeModelHandler(TranscribeServiceHandler):
                 model="chirp_2",
                 language_code=source_language,
                 srt=srt,
+                internal_call=True,
             )
             # executor.submit()
             transcription_response1 = future1.result()
