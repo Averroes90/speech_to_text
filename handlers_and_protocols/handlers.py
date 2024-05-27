@@ -1,14 +1,14 @@
-from google_adapters.google_transcribe_adapter import (
+from adapters.google_adapters.google_transcribe_adapter import (
     GoogleTranscribeModelHandler,
 )
-from google_adapters.GCP_adapter import GoogleCloudHandler
-from google_adapters.google_translate_adapter import (
+from adapters.google_adapters.GCP_adapter import GoogleCloudHandler
+from adapters.google_adapters.google_translate_adapter import (
     GoogleTranslateServiceHandler,
 )
-from google_adapters.google_environment_loader import GoogleEnvironmentHandler
-from openai_adapters.openai_transcribe_adapter import WhisperServiceHandler
-from openai_adapters.openai_environment_loader import OpenaiEnvironmentHandler
-from protocols.protocols import (
+from adapters.google_adapters.google_environment_loader import GoogleEnvironmentHandler
+from adapters.openai_adapters.openai_transcribe_adapter import WhisperServiceHandler
+from adapters.openai_adapters.openai_environment_loader import OpenaiEnvironmentHandler
+from handlers_and_protocols.protocols import (
     TranscribeServiceHandler,
     TranslationServiceHandler,
     EnvironmentHandler,

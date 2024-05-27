@@ -4,5 +4,5 @@ __pycache__/
 *.pyc
 transcribe-translate-419922-f5ac2228562d.JSON
 .env
-testing_ipynb/
+notebooks_internal/
 main.pem

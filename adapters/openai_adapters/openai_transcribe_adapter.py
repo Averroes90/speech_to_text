@@ -1,10 +1,13 @@
 from openai_adapters.openai_environment_loader import OpenaiEnvironmentHandler
-from protocols.protocols import TranscribeServiceHandler, EnvironmentHandler
+from handlers_and_protocols.protocols import (
+    TranscribeServiceHandler,
+    EnvironmentHandler,
+)
 from openai import OpenAI
 import re
-from audio_utils import batch_audio, load_audio_from_bytesio
+from utils.audio_utils import batch_audio, load_audio_from_bytesio
 import io
-import utils
+import utils.utils as utils
 
 
 class WhisperServiceHandler(TranscribeServiceHandler):

@@ -4,12 +4,15 @@ import os
 import io
 
 from openai import audio
-import utils
+import utils.utils as utils
 from dotenv import load_dotenv
 from google.api_core.client_options import ClientOptions
-from protocols.protocols import TranscribeServiceHandler, EnvironmentHandler
+from handlers_and_protocols.protocols import (
+    TranscribeServiceHandler,
+    EnvironmentHandler,
+)
 from google_adapters.google_environment_loader import GoogleEnvironmentHandler
-from nlp_utils2 import process_chirp_responses
+from utils.nlp_utils2 import process_chirp_responses
 from google_adapters.GCP_adapter import GoogleCloudHandler
 import concurrent.futures
 
@@ -48,7 +51,7 @@ class GoogleTranscribeModelHandler(TranscribeServiceHandler):
         input_audio_data_io: io.BytesIO = None,
         model: str = None,
         srt: bool = False,
-        language: str = "it",
+        language: str = "ru",
         **kwargs,
     ) -> any:
         # for debuging
@@ -144,7 +147,7 @@ class GoogleTranscribeModelHandler(TranscribeServiceHandler):
                 self.transcribe_audio,
                 input_audio_data_io=input_audio_data_io,
                 model="chirp",
-                language_code=source_language,
+                language=source_language,
                 srt=srt,
                 internal_call=True,
             )
@@ -152,7 +155,7 @@ class GoogleTranscribeModelHandler(TranscribeServiceHandler):
                 self.transcribe_audio,
                 input_audio_data_io=input_audio_data_io,
                 model="chirp_2",
-                language_code=source_language,
+                language=source_language,
                 srt=srt,
                 internal_call=True,
             )

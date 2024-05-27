@@ -7,11 +7,11 @@ import srt
 import json
 import html
 import datetime
-from handlers import get_translation_service_handler
+from handlers_and_protocols.handlers import get_translation_service_handler
 import io
 import tkinter as tk
 from tkinter import filedialog
-from nlp_utils2 import fix_none_stamps
+from utils.nlp_utils2 import fix_none_stamps
 
 
 def extract_and_convert_audio(
@@ -85,7 +85,7 @@ def save_srt_data(srt_data: str, file_path: str) -> None:
 def translate_srt(
     srt_content: str,
     service: str = "google",
-    source_language: str = "it",
+    source_language: str = "ru",
     target_language: str = "en",
     env_loaded: bool = False,
 ) -> str:

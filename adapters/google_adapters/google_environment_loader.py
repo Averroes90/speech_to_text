@@ -1,4 +1,4 @@
-from protocols.protocols import EnvironmentHandler
+from handlers_and_protocols.protocols import EnvironmentHandler
 
 import os
 from dotenv import load_dotenv

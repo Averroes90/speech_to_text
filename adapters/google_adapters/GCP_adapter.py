@@ -2,9 +2,9 @@ from typing import Protocol, runtime_checkable
 from google.cloud import storage
 import os
 import io
-import utils
+import utils.utils as utils
 from dotenv import load_dotenv
-from protocols.protocols import CloudServiceHandler
+from handlers_and_protocols.protocols import CloudServiceHandler
 from google_adapters.google_environment_loader import (
     EnvironmentHandler,
     GoogleEnvironmentHandler,

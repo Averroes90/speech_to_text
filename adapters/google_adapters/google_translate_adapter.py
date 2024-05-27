@@ -1,5 +1,5 @@
 from google.cloud import translate_v2 as translate
-from protocols.protocols import TranslationServiceHandler
+from handlers_and_protocols.protocols import TranslationServiceHandler
 from google_adapters.google_environment_loader import (
     EnvironmentHandler,
     GoogleEnvironmentHandler,
@@ -18,7 +18,7 @@ class GoogleTranslateServiceHandler(TranslationServiceHandler):
         self.translate_client = translate.Client()
 
     def translate_text(
-        self, text: str, source_language: str = "it", target_language: str = "en"
+        self, text: str, source_language: str = "ru", target_language: str = "en"
     ) -> str:
         """Translate text to the target language."""
         result = self.translate_client.translate(

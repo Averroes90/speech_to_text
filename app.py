@@ -1,12 +1,27 @@
-import utils
-import handlers
-import audio_utils
+import utils.utils as utils
+import handlers_and_protocols.handlers as handlers
+import utils.audio_utils as audio_utils
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import io
 import gc
-from nlp_utils2 import process_chirp_responses
-from google_adapters.GCP_adapter import GoogleCloudHandler
-from google_adapters.google_transcribe_adapter import GoogleTranscribeModelHandler
+from utils.nlp_utils2 import process_chirp_responses
+from adapters.google_adapters.GCP_adapter import GoogleCloudHandler
+from adapters.google_adapters.google_transcribe_adapter import (
+    GoogleTranscribeModelHandler,
+)
+import logging
+import os
+import sys
+
+# Read environment variable
+# debug_mode = os.getenv("DEBUG_MODE", "false").lower() == "true"
+debug_mode = True
+# Configure logging based on the environment variable
+logging.basicConfig(
+    level=logging.ERROR if debug_mode else logging.WARNING,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    stream=sys.stdout,  # Direct logs to standard output
+)
 
 
 # app.py
