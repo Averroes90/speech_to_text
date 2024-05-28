@@ -11,9 +11,9 @@ from handlers_and_protocols.protocols import (
     TranscribeServiceHandler,
     EnvironmentHandler,
 )
-from google_adapters.google_environment_loader import GoogleEnvironmentHandler
+from adapters.google_adapters.google_environment_loader import GoogleEnvironmentHandler
 from utils.nlp_utils2 import process_chirp_responses
-from google_adapters.GCP_adapter import GoogleCloudHandler
+from adapters.google_adapters.GCP_adapter import GoogleCloudHandler
 import concurrent.futures
 
 

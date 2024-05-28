@@ -1,6 +1,6 @@
 from google.cloud import translate_v2 as translate
 from handlers_and_protocols.protocols import TranslationServiceHandler
-from google_adapters.google_environment_loader import (
+from adapters.google_adapters.google_environment_loader import (
     EnvironmentHandler,
     GoogleEnvironmentHandler,
 )

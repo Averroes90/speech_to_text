@@ -1,4 +1,4 @@
-from openai_adapters.openai_environment_loader import OpenaiEnvironmentHandler
+from adapters.openai_adapters.openai_environment_loader import OpenaiEnvironmentHandler
 from handlers_and_protocols.protocols import (
     TranscribeServiceHandler,
     EnvironmentHandler,

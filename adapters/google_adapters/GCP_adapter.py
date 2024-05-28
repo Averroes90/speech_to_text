@@ -5,7 +5,7 @@ import io
 import utils.utils as utils
 from dotenv import load_dotenv
 from handlers_and_protocols.protocols import CloudServiceHandler
-from google_adapters.google_environment_loader import (
+from adapters.google_adapters.google_environment_loader import (
     EnvironmentHandler,
     GoogleEnvironmentHandler,
 )
