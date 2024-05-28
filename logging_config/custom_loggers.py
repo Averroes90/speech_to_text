@@ -20,11 +20,20 @@ class ConditionalDebugFilter(logging.Filter):
         return False  # Only return False if conditions exist and none are met
 
 
-def get_conditional_debug_logger(name, **conditions):
+def get_conditional_debug_logger(name: str, **conditions: any) -> logging.Logger:
+    """
+    Retrieves or creates a logger with conditional debugging capabilities based on the provided conditions.
+
+    :param name: The name of the logger.
+    :param conditions: Arbitrary key-value pairs representing the conditions to be used for conditional logging.
+    :return: Configured logger object.
+    """
     logger = logging.getLogger(name)
+    # Assume `debug_mode` is a boolean flag defined somewhere in your code that controls the logging level.
     logger.setLevel(
         logging.DEBUG if debug_mode else logging.WARNING
     )  # This logger operates at DEBUG level
+
     if not any(
         isinstance(h, logging.StreamHandler) for h in logger.handlers
     ):  # Avoid adding multiple handlers
@@ -35,10 +44,11 @@ def get_conditional_debug_logger(name, **conditions):
         handler.setFormatter(formatter)
         handler.addFilter(ConditionalDebugFilter(**conditions))
         logger.addHandler(handler)
+
     return logger
 
 
-def get_debug_logger(name):
+def get_debug_logger(name: str) -> logging.Logger:
     """Return a logger configured to output debug messages."""
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG if debug_mode else logging.WARNING)
