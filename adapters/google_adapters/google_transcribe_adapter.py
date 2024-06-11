@@ -2,8 +2,6 @@ from google.cloud.speech_v2 import SpeechClient
 from google.cloud.speech_v2.types import cloud_speech
 import os
 import io
-
-from openai import audio
 import utils.utils as utils
 from dotenv import load_dotenv
 from google.api_core.client_options import ClientOptions
@@ -51,7 +49,7 @@ class GoogleTranscribeModelHandler(TranscribeServiceHandler):
         input_audio_data_io: io.BytesIO = None,
         model: str = None,
         srt: bool = False,
-        language: str = "ru",
+        language: str = "it",
         **kwargs,
     ) -> any:
         # for debuging
