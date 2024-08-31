@@ -49,7 +49,7 @@ class GoogleTranscribeModelHandler(TranscribeServiceHandler):
         input_audio_data_io: io.BytesIO = None,
         model: str = None,
         srt: bool = False,
-        language: str = "it",
+        language: str = "ru",
         **kwargs,
     ) -> any:
         # for debuging

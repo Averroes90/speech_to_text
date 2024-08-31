@@ -8,8 +8,8 @@ import utils.utils as utils
 import stanza
 
 debug_mode_global= False
-i=5
-comp_word1= 'а'
+i=-5
+comp_word1= 'аcvcvc'
 comp_word2 = comp_word1
 c_logger = get_conditional_debug_logger(f"{__name__}.conditional", index=i, word1=comp_word1, word2=comp_word2)
 r_logger = get_debug_logger(f"{__name__}.debug")

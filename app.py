@@ -15,7 +15,7 @@ import sys
 
 # Read environment variable
 # debug_mode = os.getenv("DEBUG_MODE", "false").lower() == "true"
-debug_mode = True
+debug_mode = False
 # Configure logging based on the environment variable
 logging.basicConfig(
     level=logging.ERROR if debug_mode else logging.WARNING,

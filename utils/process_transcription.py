@@ -1,5 +1,5 @@
-from nlp_utils import match_segments, initialize_model_and_tokenizer
-import utils
+from utils.nlp_utils import match_segments, initialize_model_and_tokenizer
+import utils.utils as utils
 import re
 import datetime
 

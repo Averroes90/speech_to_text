@@ -1,7 +1,7 @@
 from typing import Protocol, runtime_checkable
 from google.cloud import storage, speech
 import os
-import utils
+import utils.utils as utils
 from dotenv import load_dotenv
 
 
