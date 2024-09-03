@@ -7,9 +7,9 @@ from itertools import zip_longest
 import utils.utils as utils
 import stanza
 
-debug_mode_global= False
-i=-5
-comp_word1= 'аcvcvc'
+debug_mode_global= True
+i=41
+comp_word1= 'малышка'
 comp_word2 = comp_word1
 c_logger = get_conditional_debug_logger(f"{__name__}.conditional", index=i, word1=comp_word1, word2=comp_word2)
 r_logger = get_debug_logger(f"{__name__}.debug")
@@ -727,11 +727,11 @@ def fill_missing_words(
     # print(f"len timestamps {len(timestamps)}")
     # print(f"len wordss {len(words)}")
     n_missing = 0
-
     for index, word in enumerate(words):
         if (index - n_missing) in timestamps:
             word_from_timestamps = timestamps[index - n_missing]["word"]
-            word2 = preprocess_and_tokenize(word_from_timestamps)[0]
+            tokens = preprocess_and_tokenize(word_from_timestamps)
+            word2 = tokens[0] if tokens else ""
             # #################################
             # if timestamps[0]['word'] == "супер":
             #     print(
