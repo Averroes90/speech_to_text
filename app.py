@@ -111,7 +111,7 @@ def transcribe_and_translate(
                 chirp_handler.transcribe_audio,
                 input_audio_data_io=audio_data,
                 model="chirp",
-                language_code=source_language,
+                source_language=source_language,
                 srt=False,
                 internal_call=True,
             )
@@ -119,7 +119,7 @@ def transcribe_and_translate(
                 chirp2_handler.transcribe_audio,
                 input_audio_data_io=audio_data,
                 model="chirp_2",
-                language_code=source_language,
+                source_language=source_language,
                 srt=False,
                 internal_call=True,
             )

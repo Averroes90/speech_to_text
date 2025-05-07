@@ -65,7 +65,7 @@ class WhisperServiceHandler(TranscribeServiceHandler):
         print("openai transcription complete!")
         utils.save_object_to_pickle(
             complete_srt,
-            file_path=f"/Users/ramiibrahimi/Documents/test/pkl/{file_name}_whisper.pkl",
+            file_path=f"/Users/ramiibrahimi/Documents/test.nosync/pkl/{file_name}_whisper.pkl",
         )
         return complete_srt  # in srt format
 
@@ -111,7 +111,7 @@ class WhisperServiceHandler(TranscribeServiceHandler):
         print("openai transcription complete!")
         utils.save_object_to_pickle(
             complete_srt_reindex,
-            file_path=f"/Users/ramiibrahimi/Documents/test/pkl/{file_name}_whisper.pkl",
+            file_path=f"/Users/ramiibrahimi/Documents/test.nosync/pkl/{file_name}_whisper.pkl",
         )
 
         return complete_srt_reindex  # in srt format

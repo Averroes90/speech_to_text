@@ -82,6 +82,7 @@ def save_srt_data(srt_data: str, file_path: str) -> None:
         print(f"Failed to save SRT file: {e}")
 
 
+# here
 def translate_srt(
     srt_content: str,
     service: str = "google",

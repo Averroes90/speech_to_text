@@ -27,10 +27,10 @@ def process_transcription(
                 )
                 utils.save_object_to_pickle(
                     translated_segments,
-                    f"/Users/ramiibrahimi/Documents/test/pkl/{file_name}_{i}_{index}_translated_segments.pkl",
+                    f"/Users/ramiibrahimi/Documents/test.nosync/pkl/{file_name}_{i}_{index}_translated_segments.pkl",
                 )
                 # utils.load_object_from_pickle(
-                #     f"/Users/ramiibrahimi/Documents/test/pkl/{file_name}_{i}_{index}_translated_segments.pkl"
+                #     f"/Users/ramiibrahimi/Documents/test.nosync/pkl/{file_name}_{i}_{index}_translated_segments.pkl"
                 # )
             else:
                 translated_segments = translated

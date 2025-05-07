@@ -17,6 +17,7 @@ class GoogleTranslateServiceHandler(TranslationServiceHandler):
 
         self.translate_client = translate.Client()
 
+    # here
     def translate_text(
         self, text: str, source_language: str = "ru", target_language: str = "en"
     ) -> str:

@@ -1,4 +1,4 @@
-from logging_config.custom_loggers import get_conditional_debug_logger,get_debug_logger
+from logging_config.custom_loggers import get_conditional_debug_logger, get_debug_logger
 from typing import Optional
 import spacy
 from spacy.language import Language
@@ -7,11 +7,13 @@ from itertools import zip_longest
 import utils.utils as utils
 import stanza
 
-debug_mode_global= True
-i=41
-comp_word1= 'малышка'
+debug_mode_global = True
+i = 41
+comp_word1 = "малышка"
 comp_word2 = comp_word1
-c_logger = get_conditional_debug_logger(f"{__name__}.conditional", index=i, word1=comp_word1, word2=comp_word2)
+c_logger = get_conditional_debug_logger(
+    f"{__name__}.conditional", index=i, word1=comp_word1, word2=comp_word2
+)
 r_logger = get_debug_logger(f"{__name__}.debug")
 
 # def load_nlp_model(language_code: str = "it") -> Language:
@@ -52,6 +54,7 @@ r_logger = get_debug_logger(f"{__name__}.debug")
 #     ]  # Capture each sentence as a segment
 #     return segments
 
+
 def load_nlp_model(language_code: str) -> stanza.Pipeline:
     """
     Loads a Stanza NLP model with only the tokenizer for the specified language.
@@ -66,14 +69,24 @@ def load_nlp_model(language_code: str) -> stanza.Pipeline:
         ValueError: If the specified language is unsupported.
     """
     # Check if the language is supported and download the model
-    supported_languages = ["en", "it", "de", "ru", "fr", "es", "sr"]  # Extend this list based on your needs
+    supported_languages = [
+        "en",
+        "it",
+        "de",
+        "ru",
+        "fr",
+        "es",
+        "sr",
+        "pt",
+    ]  # Extend this list based on your needs
     if language_code not in supported_languages:
         raise ValueError("Unsupported language")
 
     # Ensures the model is downloaded and loads only the tokenizer
     stanza.download(language_code, verbose=False)
-    nlp = stanza.Pipeline(language_code, processors='tokenize')
+    nlp = stanza.Pipeline(language_code, processors="tokenize")
     return nlp
+
 
 def segment_text(text: str, nlp: stanza.Pipeline) -> list[str]:
     """
@@ -88,6 +101,7 @@ def segment_text(text: str, nlp: stanza.Pipeline) -> list[str]:
     """
     doc = nlp(text)
     return [sentence.text.strip() for sentence in doc.sentences]
+
 
 def preprocess_and_tokenize(text: str) -> list[str]:
     """
@@ -230,15 +244,15 @@ def clone_timestamps(
     words1 = preprocess_and_tokenize(transcript1)
     words2 = preprocess_and_tokenize(transcript2)
     #############
-    extras = {'word1':words1[comp_word_1_index],'word2':words2[comp_word_2_index]}
-    c_logger.debug(f"words1: {words1}",extra=extras)
-    c_logger.debug(f"words2: {words2}",extra=extras)
-    c_logger.debug(f"len w1: {len(words1)}",extra=extras)
-    c_logger.debug(f"len w2: {len(words2)}",extra=extras)
-    c_logger.debug(f"ts map: {timestamp_mapping}",extra=extras)
-    c_logger.debug(f"ts map len : {len(timestamp_mapping)}",extra=extras)
-    c_logger.debug(f"last word words1 {words1[-1]}",extra=extras)
-    c_logger.debug(f"last word words2 {words2[-1]}",extra=extras)
+    extras = {"word1": words1[comp_word_1_index], "word2": words2[comp_word_2_index]}
+    c_logger.debug(f"words1: {words1}", extra=extras)
+    c_logger.debug(f"words2: {words2}", extra=extras)
+    c_logger.debug(f"len w1: {len(words1)}", extra=extras)
+    c_logger.debug(f"len w2: {len(words2)}", extra=extras)
+    c_logger.debug(f"ts map: {timestamp_mapping}", extra=extras)
+    c_logger.debug(f"ts map len : {len(timestamp_mapping)}", extra=extras)
+    c_logger.debug(f"last word words1 {words1[-1]}", extra=extras)
+    c_logger.debug(f"last word words2 {words2[-1]}", extra=extras)
     #######################
 
     adjusted_timestamp_mapping = fill_missing_words(
@@ -252,8 +266,8 @@ def clone_timestamps(
     # ):
     #     print(f"adj ts map: {adjusted_timestamp_mapping}")
     #     print(f"adj ts map len: {len(adjusted_timestamp_mapping)}")
-    c_logger.debug(f"adj ts map: {adjusted_timestamp_mapping}",extra=extras)
-    c_logger.debug(f"adj ts map len: {len(adjusted_timestamp_mapping)}",extra=extras)
+    c_logger.debug(f"adj ts map: {adjusted_timestamp_mapping}", extra=extras)
+    c_logger.debug(f"adj ts map len: {len(adjusted_timestamp_mapping)}", extra=extras)
     # #######################
     index_mapping = match_transcripts(words1, words2)
     # #############
@@ -263,8 +277,8 @@ def clone_timestamps(
     # ):
     #     print(f"index map: {index_mapping}")
     #     print(f"index map len: {len(index_mapping)}")
-    c_logger.debug(f"index map: {index_mapping}",extra=extras)
-    c_logger.debug(f"index map len: {len(index_mapping)}",extra=extras)
+    c_logger.debug(f"index map: {index_mapping}", extra=extras)
+    c_logger.debug(f"index map len: {len(index_mapping)}", extra=extras)
     #######################
 
     # Initialize the timestamp list for words2 with default values
@@ -276,7 +290,7 @@ def clone_timestamps(
         words2_w_timestamps.append(
             {
                 "word2": words2[0],
-                'word1': words1[0] if words1[0] == words2[0] else None,
+                "word1": words1[0] if words1[0] == words2[0] else None,
                 "start_time": adjusted_timestamp_mapping[0]["start_time"],
                 "end_time": adjusted_timestamp_mapping[0]["end_time"],
             }
@@ -322,15 +336,22 @@ def clone_timestamps(
         #     print(f"words 1 in mapping {words1}")
         #     print(f"len of words 2 in mapping {len(words2)}")
         #     print(f"len of adjusted mapping {len(adjusted_timestamp_mapping)}")
-        c_logger.debug(f"adjusted time stampping {adjusted_timestamp_mapping}",extra=extras)
-        c_logger.debug(f"adjusted time stampping  last {adjusted_timestamp_mapping[last_index1]["end_time"]}",extra=extras)
-        c_logger.debug(f"last index1 {last_index1}",extra=extras)
-        c_logger.debug(f"last index2 {last_index2}",extra=extras)
-        c_logger.debug(f"words 2 in mapping {words2}",extra=extras)
-        c_logger.debug(f"words 1 in mapping {words1}",extra=extras)
-        c_logger.debug(f"len of words 2 in mapping {len(words2)}",extra=extras)
-        c_logger.debug(f"len of adjusted mapping {len(adjusted_timestamp_mapping)}",extra=extras)
-         ###################################################################
+        c_logger.debug(
+            f"adjusted time stampping {adjusted_timestamp_mapping}", extra=extras
+        )
+        c_logger.debug(
+            f"adjusted time stampping  last {adjusted_timestamp_mapping[last_index1]["end_time"]}",
+            extra=extras,
+        )
+        c_logger.debug(f"last index1 {last_index1}", extra=extras)
+        c_logger.debug(f"last index2 {last_index2}", extra=extras)
+        c_logger.debug(f"words 2 in mapping {words2}", extra=extras)
+        c_logger.debug(f"words 1 in mapping {words1}", extra=extras)
+        c_logger.debug(f"len of words 2 in mapping {len(words2)}", extra=extras)
+        c_logger.debug(
+            f"len of adjusted mapping {len(adjusted_timestamp_mapping)}", extra=extras
+        )
+        ###################################################################
         if last_index2 in index_mapping:
             start_time = adjusted_timestamp_mapping[last_index1]["start_time"]
         else:
@@ -349,7 +370,7 @@ def clone_timestamps(
         #     or words2[comp_word_2_index] == comp_word_2
         # ):
         #     print(words2_w_timestamps)
-        c_logger.debug(f"words2_w_timestamps: {words2_w_timestamps}",extra=extras)
+        c_logger.debug(f"words2_w_timestamps: {words2_w_timestamps}", extra=extras)
         ##################################################
 
     return words2_w_timestamps
@@ -554,10 +575,13 @@ def process_chirp_responses(
         #     )
         #     print(f"result {i} trans1 pre clone {transcript1}")
         #     print(f"result {i} trans2 pre clone {transcript2}")
-        extras = {'index':debug_index}
-        c_logger.debug(f"result {i} word time stamp map pre clone len{len(word_timestamp_mapping)} word_timestamp_map {word_timestamp_mapping}",extra=extras)
-        c_logger.debug(f"result {i} trans1 pre clone {transcript1}",extra=extras)
-        c_logger.debug(f"result {i} trans2 pre clone {transcript2}",extra=extras)
+        extras = {"index": debug_index}
+        c_logger.debug(
+            f"result {i} word time stamp map pre clone len{len(word_timestamp_mapping)} word_timestamp_map {word_timestamp_mapping}",
+            extra=extras,
+        )
+        c_logger.debug(f"result {i} trans1 pre clone {transcript1}", extra=extras)
+        c_logger.debug(f"result {i} trans2 pre clone {transcript2}", extra=extras)
         # ################
         stamped_transcript2 = clone_timestamps(
             transcript1, transcript2, word_timestamp_mapping
@@ -569,15 +593,23 @@ def process_chirp_responses(
         #         f"result {i} stamped transcript pre segmentation post clone len{len(stamped_transcript2)} segment_transcript2 {stamped_transcript2}"
         #     )
         #     print(f"result {i} transcript2 pre segmentation post clone {transcript2}")
-        c_logger.debug(f"result {i} stamped transcript pre segmentation post clone len{len(stamped_transcript2)} segment_transcript2 {stamped_transcript2}",extra=extras)
-        c_logger.debug(f"result {i} transcript2 pre segmentation post clone {transcript2}",extra=extras)
+        c_logger.debug(
+            f"result {i} stamped transcript pre segmentation post clone len{len(stamped_transcript2)} segment_transcript2 {stamped_transcript2}",
+            extra=extras,
+        )
+        c_logger.debug(
+            f"result {i} transcript2 pre segmentation post clone {transcript2}",
+            extra=extras,
+        )
         ################
         segments2 = segment_text(transcript2, nlp)
         # for debugging
         ###################
         # if debug_mode and i == debug_index:
         #     print(f"result {i} segments2 post segmentation {segments2}")
-        c_logger.debug(f"result {i} segments2 post segmentation {segments2}",extra=extras)
+        c_logger.debug(
+            f"result {i} segments2 post segmentation {segments2}", extra=extras
+        )
         ################
 
         segment_stamps2 = find_segment_starting_ending_times(
@@ -591,8 +623,14 @@ def process_chirp_responses(
         #     print(
         #         f"post find starting and ending times loop1 segment stamps 2 len{len(segment_stamps2)} segment_stamps2 {segment_stamps2}"
         #     )
-        c_logger.debug(f"post find starting and ending times loop1 segments2 len{len(segments2)} segments2 {segments2}",extra=extras)
-        c_logger.debug(f"post find starting and ending times loop1 segment stamps 2 len{len(segment_stamps2)} segment_stamps2 {segment_stamps2}",extra=extras)
+        c_logger.debug(
+            f"post find starting and ending times loop1 segments2 len{len(segments2)} segments2 {segments2}",
+            extra=extras,
+        )
+        c_logger.debug(
+            f"post find starting and ending times loop1 segment stamps 2 len{len(segment_stamps2)} segment_stamps2 {segment_stamps2}",
+            extra=extras,
+        )
         #############################
         combined_segments2 = combine_on_none(
             segments=segments2, segment_times=segment_stamps2
@@ -604,8 +642,8 @@ def process_chirp_responses(
         segments_w_stamps1.extend(combined_segments1)
     # print(segments_w_stamps1)
     # print(segments_w_stamps2)
-    r_logger.info(f'segments_w_stamps1: {segments_w_stamps1}')
-    r_logger.info(f'segments_w_stamps2: {segments_w_stamps2}')
+    r_logger.info(f"segments_w_stamps1: {segments_w_stamps1}")
+    r_logger.info(f"segments_w_stamps2: {segments_w_stamps2}")
     srt_subtitles1 = utils.create_srt(segments_w_stamps1, audio_duration)
     srt_subtitles2 = utils.create_srt(segments_w_stamps2, audio_duration)
     return srt_subtitles1, srt_subtitles2
@@ -655,7 +693,11 @@ def extract_words_timings(result: any) -> dict[int, dict[str, Optional[float]]]:
 
     word_info = {
         i: {
-            "word": preprocess_and_tokenize(word.word)[0] if preprocess_and_tokenize(word.word) else word.word,
+            "word": (
+                preprocess_and_tokenize(word.word)[0]
+                if preprocess_and_tokenize(word.word)
+                else word.word
+            ),
             "start_time": word.start_offset.total_seconds(),
             "end_time": word.end_offset.total_seconds(),
         }
@@ -745,45 +787,44 @@ def fill_missing_words(
                 aligned_timestamps[index] = timestamps[index - n_missing]
             else:
                 n_missing += 1
-                if index > 0 and index < len(words)-1:
+                if index > 0 and index < len(words) - 1:
                     aligned_timestamps[index] = {
                         "word": word,
                         "start_time": None,
                         "end_time": None,
                     }
-                elif index == 0: #first word is missing
+                elif index == 0:  # first word is missing
                     aligned_timestamps[index] = {
                         "word": word,
-                        "start_time": timestamps[0]['start_time'],
+                        "start_time": timestamps[0]["start_time"],
                         "end_time": None,
                     }
-                elif index == len(words) -1: #last word is missing
+                elif index == len(words) - 1:  # last word is missing
                     aligned_timestamps[index] = {
                         "word": word,
                         "start_time": None,
-                        "end_time": timestamps[len(timestamps)-1]['end_time'],
+                        "end_time": timestamps[len(timestamps) - 1]["end_time"],
                     }
         else:
             # print(f"No timestamp entry for index {index} word: {word}")
-            if index > 0 and index < len(words)-1:
+            if index > 0 and index < len(words) - 1:
                 aligned_timestamps[index] = {
                     "word": word,
                     "start_time": None,
                     "end_time": None,
                 }
-            elif index == 0: #first word is missing
+            elif index == 0:  # first word is missing
                 aligned_timestamps[index] = {
                     "word": word,
-                    "start_time": timestamps[0]['start_time'],
+                    "start_time": timestamps[0]["start_time"],
                     "end_time": None,
                 }
-            elif index == len(words) -1: #last word is missing
+            elif index == len(words) - 1:  # last word is missing
                 aligned_timestamps[index] = {
                     "word": word,
                     "start_time": None,
-                    "end_time": timestamps[len(timestamps)-1]['end_time'],
+                    "end_time": timestamps[len(timestamps) - 1]["end_time"],
                 }
-
 
     # if timestamps[0]['word'] == "супер":
     #     print(f"number of missing {n_missing}")

@@ -44,12 +44,13 @@ class GoogleTranscribeModelHandler(TranscribeServiceHandler):
         else:
             self.speech_client = SpeechClient()
 
+    # here
     def transcribe_audio(
         self,
+        source_language: str,
         input_audio_data_io: io.BytesIO = None,
         model: str = None,
         srt: bool = False,
-        language: str = "ru",
         **kwargs,
     ) -> any:
         # for debuging
@@ -71,7 +72,7 @@ class GoogleTranscribeModelHandler(TranscribeServiceHandler):
             input_audio_data_io.seek(0)
             file_name = input_audio_data_io.name
 
-        language_code = self.config.get(language)
+        language_code = self.config.get(source_language)
         # self.cloud_handler.upload_audio_file(
         #     input_audio_data_io,
         # )
@@ -85,7 +86,7 @@ class GoogleTranscribeModelHandler(TranscribeServiceHandler):
             # "max_alternatives": 2,
         }
         # Conditionally add "enable_word_time_offsets" if model is not "chirp_2"
-        if model != "chirp_2" or srt is True:
+        if srt is True:
             feature_config["enable_word_time_offsets"] = True
 
         config = cloud_speech.RecognitionConfig(
@@ -121,7 +122,7 @@ class GoogleTranscribeModelHandler(TranscribeServiceHandler):
         print(f"transcription complete!...model={model}")
         utils.save_object_to_pickle(
             transcription_response,
-            file_path=f"/Users/ramiibrahimi/Documents/test/pkl/{file_name}_{model}.pkl",
+            file_path=f"/Users/ramiibrahimi/Documents/test.nosync/pkl/{file_name}_{model}.pkl",
         )
 
         return transcription_response
