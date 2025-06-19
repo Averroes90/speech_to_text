@@ -1,3 +1,4 @@
+# google_transcribe_adapter.py
 from google.cloud.speech_v2 import SpeechClient
 from google.cloud.speech_v2.types import cloud_speech
 import os

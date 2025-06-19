@@ -48,7 +48,7 @@ def transcribe_translate(
         output_extension=audio_output_extension,
     )
     audio_data.seek(0)
-    srt_response = transcribe_and_translate(
+    srt_response = transcribe_and_translate_combine(
         audio_data=audio_data,
         service_name=service_name,
         source_language=source_language,
@@ -85,7 +85,7 @@ def transcribe(
     return srt_response
 
 
-def transcribe_and_translate(
+def transcribe_and_translate_combine(
     audio_data: io.BytesIO,
     service_name: str,
     source_language: str,
@@ -140,6 +140,54 @@ def transcribe_and_translate(
         # )
         srt_response = utils.translate_srt(
             srt_2,
+            service="google",
+            source_language=source_language,
+            target_language=target_language,
+            env_loaded=True,
+        )
+
+    else:
+
+        tc_tr_handler = handlers.get_transcribe_service_handler(
+            service=service_name, env_loaded=env_loaded, server_region=server_region
+        )
+        srt_response = tc_tr_handler.transcribe_translate(
+            input_audio_data_io=audio_data,
+            source_language=source_language,
+            target_language=target_language,
+        )
+
+    return srt_response
+
+
+def transcribe_and_translate(
+    audio_data: io.BytesIO,
+    service_name: str,
+    source_language: str,
+    target_language: str,
+    env_loaded: bool = False,
+    server_region: str = "us-central1",  # for google transcribe chirp
+):
+    audio_data.seek(0)
+    if service_name == "google" and server_region:
+        chirp2_handler = handlers.get_transcribe_service_handler(
+            service=service_name, env_loaded=env_loaded, server_region="us-central1"
+        )
+
+        cloud_handler = GoogleCloudHandler(env_loaded=True)
+        cloud_handler.upload_audio_file(input_audio_data_io=audio_data)
+        audio_data.seek(0)
+        transcription_response = chirp2_handler.transcribe_audio(
+            input_audio_data_io=audio_data,
+            model="chirp_2",
+            source_language=source_language,
+            srt=True,
+            internal_call=True,
+        )
+        key = next(iter(transcription_response.results))
+        srt = transcription_response.results[key].inline_result.srt_captions
+        srt_response = utils.translate_srt(
+            srt,
             service="google",
             source_language=source_language,
             target_language=target_language,
