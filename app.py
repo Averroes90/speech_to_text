@@ -170,30 +170,39 @@ def transcribe_and_translate(
 ):
     audio_data.seek(0)
     if service_name == "google" and server_region:
-        chirp2_handler = handlers.get_transcribe_service_handler(
-            service=service_name, env_loaded=env_loaded, server_region="us-central1"
-        )
+        try:
+            chirp2_handler = handlers.get_transcribe_service_handler(
+                service=service_name, env_loaded=env_loaded, server_region="us-central1"
+            )
 
-        cloud_handler = GoogleCloudHandler(env_loaded=True)
-        cloud_handler.upload_audio_file(input_audio_data_io=audio_data)
-        audio_data.seek(0)
-        transcription_response = chirp2_handler.transcribe_audio(
-            input_audio_data_io=audio_data,
-            model="chirp_2",
-            source_language=source_language,
-            srt=True,
-            internal_call=True,
-        )
-        key = next(iter(transcription_response.results))
-        srt = transcription_response.results[key].inline_result.srt_captions
-        srt_response = utils.translate_srt(
-            srt,
-            service="google",
-            source_language=source_language,
-            target_language=target_language,
-            env_loaded=True,
-        )
+            cloud_handler = GoogleCloudHandler(env_loaded=True)
+            cloud_handler.upload_audio_file(input_audio_data_io=audio_data)
 
+            audio_filename = audio_data.name
+
+            audio_data.seek(0)
+            transcription_response = chirp2_handler.transcribe_audio(
+                input_audio_data_io=audio_data,
+                model="chirp_2",
+                source_language=source_language,
+                srt=True,
+                internal_call=True,
+            )
+            key = next(iter(transcription_response.results))
+            srt = transcription_response.results[key].inline_result.srt_captions
+            srt_response = utils.translate_srt(
+                srt,
+                service="google",
+                source_language=source_language,
+                target_language=target_language,
+                env_loaded=True,
+            )
+        finally:
+            success, message = cloud_handler.delete_audio_file(audio_filename)
+            if success:
+                print(f"Cleanup successful: {message}")
+            else:
+                print(f"Cleanup failed: {message}")
     else:
 
         tc_tr_handler = handlers.get_transcribe_service_handler(
