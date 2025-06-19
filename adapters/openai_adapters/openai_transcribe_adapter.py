@@ -8,6 +8,9 @@ import re
 from utils.audio_utils import batch_audio, load_audio_from_bytesio
 import io
 import utils.utils as utils
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import openai
+import time
 
 
 class WhisperServiceHandler(TranscribeServiceHandler):
@@ -16,6 +19,7 @@ class WhisperServiceHandler(TranscribeServiceHandler):
         environment_handler: EnvironmentHandler = None,
         env_loaded: bool = False,
         server_region: str = None,
+        max_workers: int = 8,
     ):
         if not env_loaded:
             if environment_handler is None:
@@ -24,6 +28,130 @@ class WhisperServiceHandler(TranscribeServiceHandler):
                 self.environment_handler = environment_handler
             self.environment_handler.load_environment()
         self.client = OpenAI()
+        self.max_workers = max_workers
+
+    def _transcribe_single_chunk(
+        self, chunk_data, source_language=None, translate=False
+    ):
+        """
+        Transcribe a single audio chunk with retry logic for rate limits.
+
+        Args:
+            chunk_data: tuple of (audio_segment, segment_time, index)
+            source_language: Language code for transcription
+            translate: Whether to translate (True) or just transcribe (False)
+
+        Returns:
+            tuple: (index, adjusted_transcript) for proper ordering
+        """
+        audio_segment, segment_time, index = chunk_data
+        max_retries = 3
+        base_delay = 1
+
+        for attempt in range(max_retries):
+            try:
+                print(f"Processing chunk {index + 1} (attempt {attempt + 1})")
+
+                if translate:
+                    transcript = self.client.audio.translations.create(
+                        file=audio_segment,
+                        model="whisper-1",
+                        response_format="srt",
+                    )
+                else:
+                    transcript = self.client.audio.transcriptions.create(
+                        file=audio_segment,
+                        language=source_language,
+                        model="whisper-1",
+                        response_format="srt",
+                    )
+
+                # Adjust timestamps based on segment start time
+                adjusted_transcript = adjust_srt_timestamps(transcript, segment_time[0])
+                return (index, adjusted_transcript)
+
+            except openai.RateLimitError as e:
+                if attempt < max_retries - 1:
+                    # Exponential backoff with jitter
+                    delay = base_delay * (2**attempt) + (time.time() % 1)
+                    print(
+                        f"Rate limit hit for chunk {index + 1}, retrying in {delay:.2f}s"
+                    )
+                    time.sleep(delay)
+                else:
+                    print(
+                        f"Failed to process chunk {index + 1} after {max_retries} attempts"
+                    )
+                    raise e
+            except Exception as e:
+                print(f"Error processing chunk {index + 1}: {str(e)}")
+                if attempt < max_retries - 1:
+                    time.sleep(base_delay)
+                else:
+                    raise e
+
+    def _process_chunks_parallel(
+        self, audio_data, segment_times, source_language=None, translate=False
+    ):
+        """
+        Process audio chunks in parallel with proper ordering.
+
+        Returns:
+            str: Complete SRT content with proper ordering
+        """
+        # Prepare chunk data with indices for proper ordering
+        chunk_data = [
+            (audio_segment, segment_time, index)
+            for index, (audio_segment, segment_time) in enumerate(
+                zip(audio_data, segment_times)
+            )
+        ]
+
+        # Determine optimal number of workers
+        actual_workers = min(
+            self.max_workers, len(chunk_data), 10
+        )  # Cap at 10 for safety
+
+        print(f"Processing {len(chunk_data)} chunks with {actual_workers} workers")
+
+        # Store results with their original indices
+        results = [None] * len(chunk_data)
+
+        with ThreadPoolExecutor(max_workers=actual_workers) as executor:
+            # Submit all chunks
+            future_to_index = {
+                executor.submit(
+                    self._transcribe_single_chunk, chunk, source_language, translate
+                ): chunk[
+                    2
+                ]  # chunk[2] is the index
+                for chunk in chunk_data
+            }
+
+            # Collect results as they complete
+            completed = 0
+            for future in as_completed(future_to_index):
+                try:
+                    index, transcript = future.result()
+                    results[index] = transcript
+                    completed += 1
+                    print(
+                        f"Completed chunk {index + 1} ({completed}/{len(chunk_data)})"
+                    )
+                except Exception as e:
+                    original_index = future_to_index[future]
+                    print(f"Failed to process chunk {original_index + 1}: {str(e)}")
+                    # You might want to handle this differently - perhaps retry or skip
+                    results[original_index] = ""  # Empty string as placeholder
+
+        # Combine results in correct order
+        srt_segments = [
+            result + "\n" if result and not result.endswith("\n\n") else result
+            for result in results
+            if result is not None
+        ]
+
+        return "".join(srt_segments)
 
     def transcribe_audio(
         self,
@@ -36,38 +164,25 @@ class WhisperServiceHandler(TranscribeServiceHandler):
             raise ValueError(
                 "Audio path, and language is required for Whisper transcription."
             )
+
         input_audio_data_io.seek(0)
-        # Assuming 'audio_data' is preprocessed and ready for API call
         input_audio_data = load_audio_from_bytesio(input_audio_data_io)
         audio_data, segment_times = batch_audio(input_audio_data, max_size_mb=24)
-        # print(f"len data {len(audio_data)}")
-        # return
+
         file_name = input_audio_data_io.name
-        transcription_response = []
-        for index, (audio_segment, segment_time) in enumerate(
-            zip(audio_data, segment_times)
-        ):
-            print(f"openai transcribing batch {index+1} of {len(audio_data)}")
-            transcript = self.client.audio.transcriptions.create(
-                file=audio_segment,
-                language=source_language,
-                model="whisper-1",
-                response_format="srt",
-                # timestamp_granularities=["word", "segment"],
-            )
-            adjusted_transcript = adjust_srt_timestamps(transcript, segment_time[0])
-            transcription_response.append(adjusted_transcript)
-            srt_segments = [
-                s + "\n" if not s.endswith("\n\n") else s
-                for s in transcription_response
-            ]
-        complete_srt = "".join(srt_segments)
-        print("openai transcription complete!")
+
+        print(f"Starting parallel transcription of {len(audio_data)} chunks")
+        complete_srt = self._process_chunks_parallel(
+            audio_data, segment_times, source_language, translate=False
+        )
+
+        print("OpenAI transcription complete!")
         utils.save_object_to_pickle(
             complete_srt,
             file_path=f"/Users/ramiibrahimi/Documents/test.nosync/pkl/{file_name}_whisper.pkl",
         )
-        return complete_srt  # in srt format
+
+        return complete_srt
 
     def transcribe_translate(
         self,
@@ -79,36 +194,24 @@ class WhisperServiceHandler(TranscribeServiceHandler):
             raise ValueError(
                 "Audio path, and language is required for Whisper transcription."
             )
+
         input_audio_data_io.seek(0)
         input_audio_data = load_audio_from_bytesio(input_audio_data_io)
-        # Assuming 'audio_data' is preprocessed and ready for API call
         audio_data, segment_times = batch_audio(input_audio_data, max_size_mb=24)
-        # print(f"len data {len(audio_data)}")
-        # return
+
         file_name = input_audio_data_io.name
-        transcription_response = []
-        for index, (audio_segment, segment_time) in enumerate(
-            zip(audio_data, segment_times)
-        ):
-            print(
-                f"openai transcribing and translating batch {index+1} of {len(audio_data)}"
-            )
-            transcript = self.client.audio.translations.create(
-                file=audio_segment,
-                model="whisper-1",
-                response_format="srt",
-                # timestamp_granularities=["word", "segment"],
-            )
-            # Adjust timestamps in transcript based on start_time
-            adjusted_transcript = adjust_srt_timestamps(transcript, segment_time[0])
-            transcription_response.append(adjusted_transcript)
-            srt_segments = [
-                s + "\n" if not s.endswith("\n\n") else s
-                for s in transcription_response
-            ]
-        complete_srt = "".join(srt_segments)
+
+        print(
+            f"Starting parallel transcription+translation of {len(audio_data)} chunks"
+        )
+        complete_srt = self._process_chunks_parallel(
+            audio_data, segment_times, translate=True
+        )
+
+        # Renumber SRT indices for consistency
         complete_srt_reindex = renumber_srt_indices(complete_srt)
-        print("openai transcription complete!")
+
+        print("OpenAI transcription+translation complete!")
         utils.save_object_to_pickle(
             complete_srt_reindex,
             file_path=f"/Users/ramiibrahimi/Documents/test.nosync/pkl/{file_name}_whisper.pkl",
