@@ -3,6 +3,8 @@ import webrtcvad
 import io
 import os
 from typing import Optional
+import librosa
+import soundfile as sf
 
 
 def load_audio(file_path: str) -> Optional[AudioSegment]:
@@ -236,3 +238,154 @@ def load_audio_from_bytesio(bytes_io: io.BytesIO) -> Optional[AudioSegment]:
     except Exception as e:
         print(f"Error loading audio from BytesIO: {e}")
         return None
+
+
+# Whisper supported sample rates (in Hz)
+WHISPER_SUPPORTED_RATES = {8000, 16000, 24000, 32000, 48000}
+WHISPER_OPTIMAL_RATE = 16000  # Best performance for speech recognition
+
+
+def convert_audio_sample_rate(
+    input_audio_data_io: io.BytesIO,
+    target_rate: int = WHISPER_OPTIMAL_RATE,
+    force_conversion: bool = False,
+) -> tuple[bool, str, Optional[io.BytesIO]]:
+    """
+    Convert audio sample rate to Whisper-compatible format if needed.
+
+    Args:
+        input_audio_data_io (io.BytesIO): Input audio data with sample_rate attribute
+        target_rate (int): Target sample rate (default: 16000 Hz)
+        force_conversion (bool): Force conversion even if current rate is supported
+
+    Returns:
+        tuple[bool, str, Optional[io.BytesIO]]:
+            - Success flag
+            - Status message
+            - Converted audio BytesIO object (or original if no conversion needed)
+    """
+    try:
+        # Check if input has sample rate attribute
+        if not hasattr(input_audio_data_io, "sample_rate"):
+            return False, "Input audio data missing sample_rate attribute", None
+
+        current_rate = input_audio_data_io.sample_rate
+
+        # Check if conversion is needed
+        if not force_conversion and current_rate in WHISPER_SUPPORTED_RATES:
+            if current_rate == target_rate:
+                return (
+                    True,
+                    f"Audio already at optimal rate ({current_rate} Hz)",
+                    input_audio_data_io,
+                )
+            else:
+                return (
+                    True,
+                    f"Audio at supported rate ({current_rate} Hz), no conversion needed",
+                    input_audio_data_io,
+                )
+
+        # Load audio using existing function logic
+        input_audio_data_io.seek(0)
+
+        # Extract file extension from name attribute
+        if hasattr(input_audio_data_io, "name"):
+            _, file_extension = os.path.splitext(input_audio_data_io.name)
+            file_extension = file_extension.lstrip(".")
+        else:
+            # Default to wav if no name attribute
+            file_extension = "wav"
+
+        # Load audio segment
+        audio_segment = AudioSegment.from_file(
+            input_audio_data_io, format=file_extension
+        )
+
+        # Convert sample rate
+        converted_audio = audio_segment.set_frame_rate(target_rate)
+
+        # Create new BytesIO object for converted audio
+        converted_buffer = io.BytesIO()
+
+        # Preserve original attributes
+        if hasattr(input_audio_data_io, "name"):
+            # Update filename to indicate conversion
+            original_name = input_audio_data_io.name
+            name_parts = os.path.splitext(original_name)
+            converted_buffer.name = f"{name_parts[0]}_16k{name_parts[1]}"
+        else:
+            converted_buffer.name = "converted_audio.wav"
+
+        # Set new sample rate and duration
+        converted_buffer.sample_rate = target_rate
+        converted_buffer.audio_duration = converted_audio.duration_seconds
+
+        # Export converted audio
+        export_format = (
+            file_extension if file_extension in ["wav", "mp3", "flac", "ogg"] else "wav"
+        )
+        converted_audio.export(converted_buffer, format=export_format)
+
+        # Reset position
+        converted_buffer.seek(0)
+
+        message = f"Sample rate converted from {current_rate} Hz to {target_rate} Hz"
+        return True, message, converted_buffer
+
+    except Exception as e:
+        error_msg = f"Error converting sample rate: {str(e)}"
+        return False, error_msg, None
+
+
+def check_whisper_compatibility(sample_rate: int) -> tuple[bool, str]:
+    """
+    Check if a sample rate is compatible with Whisper API.
+
+    Args:
+        sample_rate (int): Sample rate in Hz
+
+    Returns:
+        tuple[bool, str]: (is_compatible, message)
+    """
+    if sample_rate in WHISPER_SUPPORTED_RATES:
+        if sample_rate == WHISPER_OPTIMAL_RATE:
+            return True, f"Sample rate {sample_rate} Hz is optimal for Whisper"
+        else:
+            return True, f"Sample rate {sample_rate} Hz is supported by Whisper"
+    else:
+        return (
+            False,
+            f"Sample rate {sample_rate} Hz is not supported by Whisper. Supported rates: {sorted(WHISPER_SUPPORTED_RATES)}",
+        )
+
+
+def ensure_whisper_compatible_audio(input_audio_data_io: io.BytesIO) -> io.BytesIO:
+    """
+    Ensure audio is Whisper-compatible by checking and converting sample rate if needed.
+
+    Args:
+        input_audio_data_io (io.BytesIO): Input audio data
+
+    Returns:
+        io.BytesIO: Either the original audio (if compatible) or converted audio
+    """
+    is_compatible, compatibility_msg = check_whisper_compatibility(
+        input_audio_data_io.sample_rate
+    )
+    print(f"Sample rate check: {compatibility_msg}")
+
+    if not is_compatible:
+        print("Converting sample rate for Whisper compatibility...")
+        success, convert_msg, converted_audio = convert_audio_sample_rate(
+            input_audio_data_io
+        )
+        if success:
+            print(f"Conversion result: {convert_msg}")
+            return converted_audio
+        else:
+            print(f"Conversion failed: {convert_msg}")
+            # Return original audio and let Whisper handle the error
+            return input_audio_data_io
+
+    return input_audio_data_io

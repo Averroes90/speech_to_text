@@ -5,7 +5,11 @@ from handlers_and_protocols.protocols import (
 )
 from openai import OpenAI
 import re
-from utils.audio_utils import batch_audio, load_audio_from_bytesio
+from utils.audio_utils import (
+    batch_audio,
+    load_audio_from_bytesio,
+    ensure_whisper_compatible_audio,
+)
 import io
 import utils.utils as utils
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -196,6 +200,8 @@ class WhisperServiceHandler(TranscribeServiceHandler):
             )
 
         input_audio_data_io.seek(0)
+        # Ensure audio is Whisper-compatible (check/convert sample rate)
+        input_audio_data_io = ensure_whisper_compatible_audio(input_audio_data_io)
         input_audio_data = load_audio_from_bytesio(input_audio_data_io)
         audio_data, segment_times = batch_audio(input_audio_data, max_size_mb=24)
 
