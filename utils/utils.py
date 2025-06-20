@@ -50,7 +50,16 @@ def get_sample_rate(audio_file_path: str) -> int:
 
 
 def save_object_to_pickle(object: str, file_path: str) -> None:
-    """Save transcription object to a pickle file."""
+    """Save transcription object to a pickle file, creating directory if needed."""
+    # Extract directory from the full file path
+    directory = os.path.dirname(file_path)
+
+    # Create directory if it doesn't exist
+    if directory and not os.path.exists(directory):
+        os.makedirs(directory, exist_ok=True)
+        print(f"Created directory: {directory}")
+
+    # Save the pickle file
     with open(file_path, "wb") as f:
         pickle.dump(object, f)
     print("pickle file saved")
