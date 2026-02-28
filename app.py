@@ -239,6 +239,75 @@ def transcribe_and_translate(
     return srt_response
 
 
+def transcribe_only(
+    audio_data: io.BytesIO,
+    service_name: str,
+    source_language: str,
+    env_loaded: bool = False,
+    server_region: str = "us-central1",  # for google transcribe chirp
+):
+    """Transcribe audio without translation - mirrors transcribe_and_translate but skips translation step"""
+    audio_data.seek(0)
+    if service_name == "google" and server_region:
+        # Generate a unique filename for this thread/request
+        thread_id = threading.get_ident()
+        unique_filename = f"audio_{thread_id}_{uuid.uuid4().hex[:8]}.flac"
+
+        # Store the filename in the BytesIO object for this thread
+        audio_data.name = unique_filename
+
+        cloud_handler = None
+        try:
+            chirp2_handler = handlers.get_transcribe_service_handler(
+                service=service_name, env_loaded=env_loaded, server_region=server_region
+            )
+
+            cloud_handler = GoogleCloudHandler(env_loaded=True)
+            print(f"cloud filename {unique_filename}")
+            cloud_handler.upload_audio_file(input_audio_data_io=audio_data)
+
+            audio_filename = unique_filename
+
+            audio_data.seek(0)
+            transcription_response = chirp2_handler.transcribe_audio(
+                input_audio_data_io=audio_data,
+                model="chirp_2",
+                source_language=source_language,
+                srt=True,
+                internal_call=True,
+            )
+            key = next(iter(transcription_response.results))
+            srt_response = transcription_response.results[key].inline_result.srt_captions
+            # Translation step removed - return SRT directly
+        except Exception as e:
+            # Make sure we have a filename for cleanup even if something goes wrong
+            if "audio_filename" not in locals():
+                audio_filename = unique_filename
+            raise e
+        finally:
+            # Always attempt cleanup with the unique filename
+            if cloud_handler and "audio_filename" in locals():
+                try:
+                    success, message = cloud_handler.delete_audio_file(audio_filename)
+                    if success:
+                        print(f"Cleanup successful: {message}")
+                    else:
+                        print(f"Cleanup failed: {message}")
+                except Exception as cleanup_error:
+                    print(f"Cleanup error: {cleanup_error}")
+    else:
+        # For OpenAI and other services - use transcribe_audio instead of transcribe_translate
+        tc_tr_handler = handlers.get_transcribe_service_handler(
+            service=service_name, env_loaded=env_loaded, server_region=server_region
+        )
+        srt_response = tc_tr_handler.transcribe_audio(
+            input_audio_data_io=audio_data,
+            source_language=source_language,
+        )
+
+    return srt_response
+
+
 def multi_transcribe(
     file_path: str,
     service_names: list[str],
@@ -293,6 +362,79 @@ def multi_transcribe(
                 audio_data=thread_audio_data,  # Each thread gets its own copy
                 source_language=source_language,
                 target_language=target_language,
+                env_loaded=True,
+                server_region=server_region,
+            )
+            future_to_service[future] = service
+
+        for future in as_completed(future_to_service):
+            service = future_to_service[future]
+            try:
+                srt_response = future.result()
+                srt_responses[service] = srt_response
+            except Exception as exc:
+                srt_responses[service] = f"{service} generated an exception: {exc}"
+
+    # Clean up
+    del audio_bytes
+    gc.collect()
+    return srt_responses
+
+
+def multi_transcribe_only(
+    file_path: str,
+    service_names: list[str],
+    source_language: str,
+    audio_output_extension: str = ".wav",
+    server_region: str = "us-central1",  # for google transcribe chirp
+) -> str:
+    """Multi-service transcription without translation - mirrors multi_transcribe but skips translation"""
+    srt_responses = {}
+
+    # Load environments first (this should be thread-safe)
+    for service_name in service_names:
+        env_handler = handlers.get_environmet_handler(service=service_name)
+        env_handler.load_environment()
+
+    path, filename, extension = utils.extract_path_details(full_path=file_path)
+    print("extracting audio from video file")
+
+    success, message, audio_data = audio_utils.extract_audio(
+        input_path=path,
+        input_filename=filename,
+        input_extension=extension,
+        output_extension=audio_output_extension,
+    )
+
+    # CRITICAL FIX: Read the audio data into memory once
+    audio_data.seek(0)
+    audio_bytes = audio_data.read()  # Read all data into bytes
+    audio_data.close()  # Close the original buffer
+
+    print("starting automatic transcriptions (no translation)")
+
+    with ThreadPoolExecutor() as executor:
+        future_to_service = {}
+
+        for service in service_names:
+            # Create a fresh BytesIO buffer for each thread/service
+            thread_audio_data = io.BytesIO(audio_bytes)
+            thread_audio_data.seek(0)
+
+            # Generate unique filename for each service
+            thread_id = threading.get_ident()
+            unique_filename = f"audio_{service}_{thread_id}_{uuid.uuid4().hex[:8]}.flac"
+            thread_audio_data.name = unique_filename
+
+            # Copy sample_rate if it exists
+            if hasattr(audio_data, "sample_rate"):
+                thread_audio_data.sample_rate = audio_data.sample_rate
+            future = executor.submit(
+                transcribe_only,  # Call transcribe_only instead of transcribe_and_translate
+                service_name=service,
+                audio_data=thread_audio_data,  # Each thread gets its own copy
+                source_language=source_language,
+                # target_language removed - no translation
                 env_loaded=True,
                 server_region=server_region,
             )

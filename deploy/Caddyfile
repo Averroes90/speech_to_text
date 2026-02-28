@@ -1,0 +1,28 @@
+# /etc/caddy/Caddyfile
+#
+# Replace api.yourdomain.com with your actual domain.
+# Caddy auto-provisions HTTPS via Let's Encrypt.
+# Make sure DNS A record points to this server first.
+
+api.yourdomain.com {
+    reverse_proxy localhost:8000
+
+    # Request size limit (100MB for audio uploads)
+    request_body {
+        max_size 100MB
+    }
+
+    # Logging
+    log {
+        output file /var/log/caddy/access.log
+        format json
+    }
+
+    # Security headers
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy no-referrer
+        -Server
+    }
+}

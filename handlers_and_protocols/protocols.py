@@ -64,5 +64,5 @@ class CloudServiceHandler(ABC):
 
 class EnvironmentHandler(ABC):
     @abstractmethod
-    def load_environment(self, credentials_env_var: str):
+    def load_environment(self, credentials_env_var: str = ""):
         pass

@@ -1,7 +1,6 @@
 import sys
 import os
 from typing import Union, TextIO
-from IPython.core.display import display, HTML
 
 # Assume OUTPUT_TO_NOTEBOOK is set as an environment variable that determines the output target
 OUTPUT_TO_NOTEBOOK = os.getenv("OUTPUT_TO_NOTEBOOK", "false").lower() == "true"
@@ -11,6 +10,7 @@ class JupyterOutput:
     """Custom output class for displaying logs in Jupyter notebooks using HTML."""
 
     def write(self, msg: str) -> None:
+        from IPython.core.display import display, HTML
         display(HTML(f"<pre>{msg}</pre>"))
 
     def flush(self) -> None:

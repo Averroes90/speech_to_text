@@ -9,8 +9,6 @@ import html
 import datetime
 from handlers_and_protocols.handlers import get_translation_service_handler
 import io
-import tkinter as tk
-from tkinter import filedialog
 from utils.nlp_utils2 import fix_none_stamps
 
 
@@ -202,6 +200,8 @@ def load_config(file_path):
 
 def select_files():
     """Opens a file dialog and returns a list of selected file paths."""
+    import tkinter as tk
+    from tkinter import filedialog
     root = tk.Tk()
     root.withdraw()  # We don't want a full GUI, so keep the root window from appearing
     root.call("wm", "attributes", ".", "-topmost", True)  # Bring the dialog on top

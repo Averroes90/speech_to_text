@@ -115,3 +115,7 @@ wcwidth==0.2.13
 weasel==0.3.4
 webrtcvad==2.0.10
 widgetsnbextension==4.0.10
+fastapi>=0.115.0
+uvicorn>=0.30.0
+python-dotenv>=1.0.0
+python-multipart>=0.0.9

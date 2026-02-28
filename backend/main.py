@@ -1,6 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List
 import sys
 import os
 from pathlib import Path
@@ -30,7 +29,8 @@ async def transcribe_video(
     source_language: str = Form("it"),
     target_language: str = Form("en"),
     services: str = Form('["openai"]'),
-    server_region: str = Form("us-central1")
+    server_region: str = Form("us-central1"),
+    translate: bool = Form(True),
 ):
     """
     Upload a video file and get SRT transcription/translation from multiple services.
@@ -41,6 +41,7 @@ async def transcribe_video(
     - target_language: Target language code (default: "en")
     - services: JSON array of service names - e.g. '["openai", "google"]' (default: '["openai"]')
     - server_region: Google Cloud region for Chirp (default: "us-central1")
+    - translate: Whether to translate (default: True). Auto-disabled if source == target language.
 
     Returns:
     - JSON with SRT content from each service (uses multithreading for concurrent transcription)
@@ -49,27 +50,43 @@ async def transcribe_video(
     service_list = json.loads(services)
 
     # Save uploaded file temporarily
-    with tempfile.NamedTemporaryFile(delete=False, suffix=Path(video.filename).suffix) as temp_file:
+    with tempfile.NamedTemporaryFile(
+        delete=False, suffix=Path(video.filename).suffix
+    ) as temp_file:
         content = await video.read()
         temp_file.write(content)
         temp_file_path = temp_file.name
 
     try:
-        # Call existing multi_transcribe function (already handles multithreading)
-        srt_responses = app.multi_transcribe(
-            file_path=temp_file_path,
-            service_names=service_list,
-            source_language=source_language,
-            target_language=target_language,
-            audio_output_extension=".flac",
-            server_region=server_region
-        )
+        # Determine if translation is needed
+        needs_translation = translate and (source_language != target_language)
+
+        if needs_translation:
+            # Call multi_transcribe for transcription + translation
+            srt_responses = app.multi_transcribe(
+                file_path=temp_file_path,
+                service_names=service_list,
+                source_language=source_language,
+                target_language=target_language,
+                audio_output_extension=".flac",
+                server_region=server_region,
+            )
+        else:
+            # Call multi_transcribe_only for transcription only (saves Google Translate costs)
+            srt_responses = app.multi_transcribe_only(
+                file_path=temp_file_path,
+                service_names=service_list,
+                source_language=source_language,
+                audio_output_extension=".flac",
+                server_region=server_region,
+            )
 
         return {
             "success": True,
             "results": srt_responses,
             "filename": video.filename,
-            "services_used": service_list
+            "services_used": service_list,
+            "translated": needs_translation,
         }
 
     finally:
@@ -80,4 +97,7 @@ async def transcribe_video(
 
 @app_instance.get("/")
 async def root():
-    return {"message": "Transcription API is running", "available_services": ["openai", "google"]}
+    return {
+        "message": "Transcription API is running",
+        "available_services": ["openai", "google"],
+    }

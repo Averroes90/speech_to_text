@@ -3,6 +3,8 @@ __pycache__/
 .DS_Store
 *.pyc
 transcribe-translate-419922-f5ac2228562d.JSON
+transcribe-translate-419922-f5ac2228562d.json
 .env
 notebooks_internal/
 main.pem
+*.pem

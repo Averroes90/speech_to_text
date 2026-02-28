@@ -1,0 +1,36 @@
+# /etc/systemd/system/transcribe-api.service
+#
+# Install:
+#   sudo cp deploy/transcribe-api.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable transcribe-api
+#   sudo systemctl start transcribe-api
+
+[Unit]
+Description=Transcribe & Translate API
+After=network.target
+
+[Service]
+Type=simple
+User=deploy
+Group=deploy
+WorkingDirectory=/home/deploy/app
+EnvironmentFile=/home/deploy/app/.env
+ExecStart=/home/deploy/app/venv/bin/uvicorn api_server:app --host 127.0.0.1 --port 8000 --workers 2
+Restart=always
+RestartSec=5
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/deploy/app /tmp
+PrivateTmp=true
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=transcribe-api
+
+[Install]
+WantedBy=multi-user.target
